@@ -290,7 +290,7 @@
 - `DELETE /admin/categories/{uuid}` - Delete category
 - `GET /categories/{uuid}/products` - Get products in a category
 
-### 5. Uploads AWS S3 / Cloudflare R2
+### 5. Uploads AWS S3 Cloudflare R2
 
 - `POST /uploads/presigned-url` - Generate presigned upload URL
 - `POST /uploads/confirm` - Validate uploaded image metadata
@@ -389,4 +389,3 @@
 Example:
 
 `GET /search/products?q=keyboard&category=electronics&minPrice=500&maxPrice=5000&sortBy=price&order=asc&page=1&limit=20`
-
