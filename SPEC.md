@@ -17,7 +17,7 @@
 
 
 ## Stack
-1. **Backend:** Express.js, MongoDB, Drizzle ORM, Razorpay, Elastic Search, Redis (Caching)
+1. **Backend:** Express.js, MongoDB Razorpay, Elastic Search, Redis (Caching)
 2. **Frontend:** React, Vite, TailwindCSS, React Router
 
 > [!NOTE]

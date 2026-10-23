@@ -1,0 +1,9 @@
+node_modules
+.env
+.env.*
+!**/.env.example
+.dev.vars*
+dist
+coverage
+data/*.sqlite
+*.log
