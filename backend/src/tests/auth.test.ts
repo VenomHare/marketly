@@ -115,7 +115,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
 
     expect(body).toHaveProperty("id", customerUser.id);
     expect(body).toHaveProperty("role", "customer");
@@ -137,7 +137,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
 
     expect(body).toHaveProperty("id", vendorUser.id);
     expect(body).toHaveProperty("role", "vendor");
@@ -161,7 +161,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body: any = await response.json();
 
     expect(body).toHaveProperty("id", adminUser.id);
     expect(body).toHaveProperty("role", "admin");
@@ -174,7 +174,7 @@ describe("Auth Routes", () => {
   it("should return 401 without token", async () => {
     const response = await fetch(`${BASE_URL}/me`);
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "No token provided");
   });
 
@@ -185,7 +185,7 @@ describe("Auth Routes", () => {
       },
     });
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -203,7 +203,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -221,7 +221,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -233,7 +233,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -245,7 +245,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "No token provided");
   });
 
@@ -263,7 +263,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "No token provided");
   });
 
@@ -281,7 +281,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "No token provided");
   });
 
@@ -299,7 +299,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -311,7 +311,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "No token provided");
   });
 
@@ -329,7 +329,7 @@ describe("Auth Routes", () => {
     });
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body: any = await response.json();
     expect(body).toHaveProperty("message", "Invalid or expired token");
   });
 
@@ -346,7 +346,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(201);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("user");
       expect(body).toHaveProperty("token");
@@ -358,7 +358,7 @@ describe("Auth Routes", () => {
       expect(body.user).toHaveProperty("status", "active");
     });
 
-    it("should register a new vendor", async () => {
+    it("should reject vendor role during registration", async () => {
       const response = await fetch(`${BASE_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -370,12 +370,9 @@ describe("Auth Routes", () => {
         }),
       });
 
-      expect(response.status).toBe(201);
-      const body = await response.json();
-      expect(body.user).toHaveProperty("role", "vendor");
-
-      // Clean up
-      await User.deleteOne({ email: "newvendor@test.com" });
+      expect(response.status).toBe(400);
+      const body: any = await response.json();
+      expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
     it("should reject registration with missing name", async () => {
@@ -389,7 +386,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
@@ -404,7 +401,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
@@ -419,7 +416,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
@@ -436,7 +433,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -453,7 +450,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Email already registered");
     });
   });
@@ -470,7 +467,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("user");
       expect(body).toHaveProperty("token");
@@ -489,7 +486,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
@@ -503,7 +500,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
     });
 
@@ -518,7 +515,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid credentials");
     });
 
@@ -533,7 +530,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid credentials");
     });
 
@@ -548,7 +545,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(403);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Account is suspended");
     });
   });
@@ -568,7 +565,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("token");
       expect(body).toHaveProperty("refreshToken");
@@ -584,7 +581,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -597,7 +594,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid or expired refresh token");
     });
 
@@ -615,7 +612,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid or expired refresh token");
     });
 
@@ -633,7 +630,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid or expired refresh token");
     });
   });
@@ -645,7 +642,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Logged out successfully");
     });
   });
@@ -662,7 +659,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("name", "Updated Customer Name");
       expect(body).toHaveProperty("email", customerUser.email);
@@ -711,7 +708,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Password updated successfully");
 
       // Revert password for other tests
@@ -745,7 +742,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -763,7 +760,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -782,7 +779,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(401);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Current password is incorrect");
     });
   });
@@ -796,7 +793,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Route not implemented yet");
     });
 
@@ -816,7 +813,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(Array.isArray(body)).toBe(true);
       expect(body.length).toBeGreaterThan(0);
@@ -835,7 +832,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(403);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Admin access required");
     });
 
@@ -855,7 +852,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("id", customerUser.id);
       expect(body).toHaveProperty("name", customerUser.name);
@@ -872,7 +869,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(404);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "User not found");
     });
 
@@ -884,7 +881,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(403);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Admin access required");
     });
 
@@ -907,7 +904,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(200);
-      const body = await response.json();
+      const body: any = await response.json();
 
       expect(body).toHaveProperty("status", "suspended");
 
@@ -926,7 +923,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -942,7 +939,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(400);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Invalid parameters");
       expect(body).not.toHaveProperty("errors");
     });
@@ -959,7 +956,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(404);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "User not found");
     });
 
@@ -974,7 +971,7 @@ describe("Auth Routes", () => {
       });
 
       expect(response.status).toBe(403);
-      const body = await response.json();
+      const body: any = await response.json();
       expect(body).toHaveProperty("message", "Admin access required");
     });
 

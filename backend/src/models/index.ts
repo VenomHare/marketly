@@ -1,5 +1,6 @@
 export { default as User } from "./User";
 export { default as Vendor } from "./Vendor";
+export { default as VendorKyc } from "./VendorKyc";
 export { default as Product } from "./Product";
 export { default as ProductImage } from "./ProductImage";
 export { default as Category } from "./Category";

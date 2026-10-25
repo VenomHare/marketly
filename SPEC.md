@@ -29,14 +29,14 @@
 - name: string
 - email: string (unique)
 - password_hash: string
-- role: "customer" | "admin"
+- role: "customer" | "vendor" | "admin"
 - status: "active" | "suspended"
 - created_at: timestamp
 - updated_at: timestamp
 
 **Vendor**
 - id: uuid (string)
-- owner_user_id: uuid (FK → User)
+- user_id: uuid (FK → User)
 - name: string
 - display_name: string
 - address: string
@@ -45,6 +45,20 @@
 - commission_rate_bps: number
 - created_at: timestamp
 - updated_at: timestamp
+
+**VendorKycSubmission**
+- id: uuid (string)
+- vendor_id: uuid (unique FK → Vendor)
+- address_proof_key: string (private R2 object key)
+- identity_proof_key: string (private R2 object key)
+- status: "pending" | "verified" | "rejected"
+- reviewed_by_user_id: uuid (optional FK → User)
+- reviewed_at: timestamp (optional)
+- rejection_reason: string (optional)
+- created_at: timestamp
+- updated_at: timestamp
+
+KYC images are stored in a private R2 bucket. Vendors submit one address proof image and one identity proof image using object keys from the upload flow. Submission waits for admin review; rejected vendors may resubmit. Product creation and vendor product changes require verified KYC. Admin document access must use short-lived private download URLs.
 
 **Product**
 - id: uuid (string)
@@ -238,11 +252,13 @@
 
 ### 1. Authentication & Users
 
+Registration creates customer accounts only; clients cannot choose a role. Admin accounts are provisioned manually.
+
 - `POST /auth/register` - Register a customer
 - `POST /auth/login` - Login and receive JWT
 - `POST /auth/refresh` - Refresh access token
 - `POST /auth/logout` - Logout / invalidate refresh session
-- `GET /users/me` - Get current user profile
+- `GET /me` - Get current user profile (includes role-specific data)
 - `PATCH /users/me` - Update current user profile
 - `PATCH /users/me/password` - Change password
 - `GET /users/me/orders` - Get current user's orders
@@ -252,9 +268,10 @@
 
 ### 2. Vendors
 
-- `POST /vendors` - Apply to become a vendor
-- `GET /vendors/me` - Get own vendor profile
+- `POST /vendors` - Apply to become a vendor (authenticated customer; requires `name`, `display_name`, `address`, and `postal_code`; creates a pending KYC application and changes the user role to vendor)
 - `PATCH /vendors/me` - Update own vendor profile
+- `GET /vendors/me/kyc` - Get own KYC submission status
+- `POST /vendors/me/kyc` - Submit address proof and identity proof R2 object keys
 - `GET /vendors/{uuid}` - Get public vendor profile
 - `GET /vendors/{uuid}/products` - Get vendor's listed products
 - `GET /vendors/me/dashboard` - Get vendor dashboard analytics
@@ -262,7 +279,9 @@
 - `GET /vendors/me/settlements` - Get vendor settlement history
 - `GET /admin/vendors` - List vendors and applications
 - `GET /admin/vendors/{uuid}` - Get vendor details
-- `PATCH /admin/vendors/{uuid}/verify` - Verify or reject vendor KYC
+- `GET /admin/vendors/{uuid}/kyc` - View vendor KYC status and review metadata
+- `GET /admin/vendors/{uuid}/kyc/documents` - Get short-lived private URLs for the two KYC images
+- `PATCH /admin/vendors/{uuid}/verify` - Approve or reject KYC (rejection requires a reason)
 - `PATCH /admin/vendors/{uuid}/status` - Activate or suspend vendor
 
 ### 3. Products

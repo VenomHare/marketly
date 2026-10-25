@@ -25,7 +25,7 @@ authRouter.post("/auth/register", async (req, res) => {
         message: "Invalid parameters"
       });
     }
-    const { name, email, password, role } = validation.data;
+    const { name, email, password } = validation.data;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -38,7 +38,7 @@ authRouter.post("/auth/register", async (req, res) => {
       name,
       email,
       password_hash,
-      role: role || "customer",
+      role: "customer",
       status: "active",
     });
     const JWT_SECRET = process.env.JWT_SECRET!;
