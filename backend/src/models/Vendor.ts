@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IVendor extends Document {
   id: string;
-  owner_user_id: string;
+  user_id: string;
   name: string;
   display_name: string;
   address: string;
@@ -15,7 +15,7 @@ export interface IVendor extends Document {
 
 const VendorSchema = new Schema<IVendor>(
   {
-    owner_user_id: { type: String, required: true },
+    user_id: { type: String, required: true },
     name: { type: String, required: true },
     display_name: { type: String, required: true },
     address: { type: String, required: true },

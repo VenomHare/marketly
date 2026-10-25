@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import authRouter from "./routes/auth";
 import vendorsRouter from "./routes/vendors";
 import productsRouter from "./routes/products";
@@ -17,6 +18,16 @@ import analyticsRouter from "./routes/analytics";
 import searchRouter from "./routes/search";
 
 dotenv.config();
+
+const MONGODB_URI = process.env.MONGODB_URI || "";
+if (!MONGODB_URI) {
+  throw new Error("MONGODB_URI is not defined in environment variables");
+}
+
+mongoose
+  .connect(MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 const app = express();
 const PORT = process.env.PORT || 3000;
