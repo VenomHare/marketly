@@ -238,7 +238,8 @@ vendorsRouter.get("/vendors/:uuid", async (req, res) => {
   }
 });
 
-vendorsRouter.get("/vendors/:uuid/products", async (req, res) => {
+vendorsRouter.get("/vendors/:uuid/products", async (req, res, next) => {
+  if (req.params.uuid === "me") return next();
   const idValidation = vendorIdSchema.safeParse(req.params.uuid);
   const queryValidation = vendorProductsQuerySchema.safeParse(req.query);
   if (!idValidation.success || !queryValidation.success) {
@@ -277,6 +278,48 @@ vendorsRouter.get("/vendors/:uuid/products", async (req, res) => {
     });
   } catch (error) {
     console.error("Get vendor products error:", error);
+    return res.status(500).json({ message: "Failed to fetch vendor products" });
+  }
+});
+
+vendorsRouter.get("/vendors/me/products", authenticate, requireVendor, async (req: AuthRequest, res) => {
+  const queryValidation = vendorProductsQuerySchema.safeParse(req.query);
+  if (!queryValidation.success) {
+    return res.status(400).json({ message: "Invalid parameters" });
+  }
+
+  try {
+    const user = await User.findById(req.user!.id);
+    if (!user || user.status !== "active") {
+      return res.status(403).json({ message: "Active vendor account required" });
+    }
+
+    const { page, limit } = queryValidation.data;
+    const filter = { vendor_id: req.vendor!.id };
+    const [products, total] = await Promise.all([
+      Product.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
+      Product.countDocuments(filter),
+    ]);
+
+    return res.json({
+      products: products.map((product) => ({
+        id: product.id,
+        category_id: product.category_id,
+        name: product.name,
+        description: product.description,
+        sku: product.sku,
+        price: product.price,
+        stock: product.stock,
+        average_rating: product.average_rating,
+        review_count: product.review_count,
+        status: product.status,
+        created_at: product.created_at,
+        updated_at: product.updated_at,
+      })),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error("Get own vendor products error:", error);
     return res.status(500).json({ message: "Failed to fetch vendor products" });
   }
 });

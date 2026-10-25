@@ -603,7 +603,7 @@ describe("Vendor Routes", () => {
       const body: any = await response.json();
       expect(body.products).toHaveLength(1);
       expect(body.products[0]).toMatchObject({
-        id: products[1].id,
+        id: products[1]?.id,
         name: "Listed Two",
         description: "Second",
         price: 200,

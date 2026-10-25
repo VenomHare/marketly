@@ -14,8 +14,9 @@ const ProductImageSchema = new Schema<IProductImage>(
     object_key: { type: String, required: true },
     alt_text: { type: String },
     position: { type: Number, required: true },
-  },
-  { _id: false }
+  }
 );
+
+ProductImageSchema.index({ product_id: 1, object_key: 1 }, { unique: true });
 
 export default mongoose.model<IProductImage>("ProductImage", ProductImageSchema);
