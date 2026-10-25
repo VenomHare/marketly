@@ -26,8 +26,4 @@ reviewsRouter.get("/users/me/reviews", async (req, res) => {
   res.status(500).json({ message: "Route not implemented" });
 });
 
-reviewsRouter.patch("/admin/reviews/:uuid/moderation", async (req, res) => {
-  res.status(500).json({ message: "Route not implemented" });
-});
-
 export default reviewsRouter;

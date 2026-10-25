@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import authRouter from "./routes/auth";
+import adminRouter from "./routes/admin";
 import vendorsRouter from "./routes/vendors";
 import productsRouter from "./routes/products";
 import categoriesRouter from "./routes/categories";
@@ -37,6 +38,7 @@ app.use(express.json());
 
 // Mount all routers at /api/v1
 app.use("/api/v1", authRouter);
+app.use("/api/v1", adminRouter);
 app.use("/api/v1", vendorsRouter);
 app.use("/api/v1", productsRouter);
 app.use("/api/v1", categoriesRouter);

@@ -1,4 +1,4 @@
-# Ecommerce Platform 
+/vendors/me/dashboard# Ecommerce Platform 
 - Clone of amazon, flipkart, etc
 
 ## Base Idea
@@ -250,6 +250,8 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 ## API List
 **Base URL:** `/api/v1`
 
+Admin endpoints are listed in a dedicated section below and are registered in the centralized admin router.
+
 ### 1. Authentication & Users
 
 Registration creates customer accounts only; clients cannot choose a role. Admin accounts are provisioned manually.
@@ -262,27 +264,19 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `PATCH /users/me` - Update current user profile
 - `PATCH /users/me/password` - Change password
 - `GET /users/me/orders` - Get current user's orders
-- `GET /admin/users` - List users (admin)
-- `GET /admin/users/{uuid}` - Get user details (admin)
-- `PATCH /admin/users/{uuid}/status` - Suspend or activate user
 
 ### 2. Vendors
 
 - `POST /vendors` - Apply to become a vendor (authenticated customer; requires `name`, `display_name`, `address`, and `postal_code`; creates a pending KYC application and changes the user role to vendor)
-- `PATCH /vendors/me` - Update own vendor profile
+- `GET /vendors/me` - Get the authenticated vendor's own profile
+- `PATCH /vendors/me` - Update own name and display name; address and postal code cannot be changed after application
 - `GET /vendors/me/kyc` - Get own KYC submission status
 - `POST /vendors/me/kyc` - Submit address proof and identity proof R2 object keys
-- `GET /vendors/{uuid}` - Get public vendor profile
-- `GET /vendors/{uuid}/products` - Get vendor's listed products
-- `GET /vendors/me/dashboard` - Get vendor dashboard analytics
-- `GET /vendors/me/orders` - Get vendor's orders
-- `GET /vendors/me/settlements` - Get vendor settlement history
-- `GET /admin/vendors` - List vendors and applications
-- `GET /admin/vendors/{uuid}` - Get vendor details
-- `GET /admin/vendors/{uuid}/kyc` - View vendor KYC status and review metadata
-- `GET /admin/vendors/{uuid}/kyc/documents` - Get short-lived private URLs for the two KYC images
-- `PATCH /admin/vendors/{uuid}/verify` - Approve or reject KYC (rejection requires a reason)
-- `PATCH /admin/vendors/{uuid}/status` - Activate or suspend vendor
+- `GET /vendors/{uuid}` - Get an active vendor’s public profile (`id`, `name`, `display_name`, and `created_at`); returns 404 for missing or suspended vendors and does not expose address or postal code
+- `GET /vendors/{uuid}/products` - List active products for a verified vendor; supports `page` (default 1) and `limit` (default 20, max 100), and omits SKU and stock quantities
+- `GET /vendors/me/dashboard` - Get authenticated vendor’s active product count, total/open order counts, gross sales, refunds, net earnings, and pending payout totals (amounts in paise)
+- `GET /vendors/me/orders` - List the authenticated vendor’s orders with that vendor’s line items; supports `page` (default 1) and `limit` (default 20, max 100)
+- `GET /vendors/me/settlements` - List the authenticated vendor’s settlement history with gross, commission, refund, net amounts (paise), status, and timestamps; supports `page` (default 1) and `limit` (default 20, max 100). Provider transfer identifiers are private.
 
 ### 3. Products
 
@@ -302,11 +296,8 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 
 ### 4. Categories
 
-- `POST /admin/categories` - Create category
 - `GET /categories` - List categories
 - `GET /categories/{uuid}` - Get category details
-- `PATCH /admin/categories/{uuid}` - Update category
-- `DELETE /admin/categories/{uuid}` - Delete category
 - `GET /categories/{uuid}/products` - Get products in a category
 
 ### 5. Uploads AWS S3 Cloudflare R2
@@ -335,11 +326,8 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 
 ### 8. Coupons
 
-- `POST /admin/coupons` - Create coupon
 - `GET /coupons` - List available coupons
 - `GET /coupons/{uuid}` - Get coupon details
-- `PATCH /admin/coupons/{uuid}` - Update coupon
-- `DELETE /admin/coupons/{uuid}` - Deactivate or delete coupon
 - `POST /coupons/validate` - Validate coupon for current cart
 - `GET /users/me/coupons` - Get eligible or previously used coupons
 
@@ -352,8 +340,6 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `POST /orders/{uuid}/cancel` - Request order cancellation
 - `POST /orders/{uuid}/return` - Request a return
 - `GET /orders/{uuid}/tracking` - Get order tracking details
-- `GET /admin/orders` - List all orders (admin)
-- `PATCH /admin/orders/{uuid}/status` - Update permitted order status
 
 ### 10. Vendor Order Fulfilment
 
@@ -374,8 +360,6 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `POST /webhooks/razorpay` - Receive Razorpay webhook events
 - `POST /webhooks/stripe` - Receive Stripe webhook events
 - `GET /vendor/settlements` - Get vendor settlement history
-- `GET /admin/settlements` - List settlements
-- `POST /admin/settlements/{uuid}/retry` - Retry a failed settlement
 
 ### 12. Reviews
 
@@ -385,9 +369,47 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `PATCH /reviews/{uuid}` - Edit own review
 - `DELETE /reviews/{uuid}` - Delete own review
 - `GET /users/me/reviews` - List own reviews
+
+### 13. Admin APIs
+
+All routes in this section require the admin role.
+
+#### Users
+
+- `GET /admin/users` - List users
+- `GET /admin/users/{uuid}` - Get user details
+- `PATCH /admin/users/{uuid}/status` - Suspend or activate user
+
+#### Vendors and KYC
+
+- `GET /admin/vendors` - List vendors and applications
+- `GET /admin/vendors/{uuid}` - Get vendor details
+- `GET /admin/vendors/{uuid}/kyc` - View vendor KYC status and review metadata
+- `GET /admin/vendors/{uuid}/kyc/documents` - Get short-lived private URLs for the two KYC images
+- `PATCH /admin/vendors/{uuid}/verify` - Approve or reject KYC (rejection requires a reason)
+- `PATCH /admin/vendors/{uuid}/status` - Activate or suspend vendor
+
+#### Categories and coupons
+
+- `POST /admin/categories` - Create category
+- `PATCH /admin/categories/{uuid}` - Update category
+- `DELETE /admin/categories/{uuid}` - Delete category
+- `POST /admin/coupons` - Create coupon
+- `PATCH /admin/coupons/{uuid}` - Update coupon
+- `DELETE /admin/coupons/{uuid}` - Deactivate or delete coupon
+
+#### Orders and settlements
+
+- `GET /admin/orders` - List all orders
+- `PATCH /admin/orders/{uuid}/status` - Update permitted order status
+- `GET /admin/settlements` - List settlements
+- `POST /admin/settlements/{uuid}/retry` - Retry a failed settlement
+
+#### Reviews
+
 - `PATCH /admin/reviews/{uuid}/moderation` - Moderate a review
 
-### 13. Admin Analytics
+#### Analytics
 
 - `GET /admin/analytics/overview` - Get revenue, orders, customers, and vendors
 - `GET /admin/analytics/sales` - Get sales over a date range
@@ -397,13 +419,16 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `GET /admin/analytics/payments` - Get payment success and failure metrics
 - `GET /admin/analytics/commissions` - Get platform commission totals
 
+#### Search index
+
+- `POST /admin/search/reindex` - Trigger product reindexing
+- `GET /admin/search/index-status` - Check search index status
+
 ### 14. Search & Elasticsearch
 
 - `GET /search/products` - Search products with filters and sorting
 - `GET /search/suggestions` - Get autocomplete suggestions
 - `GET /search/trending` - Get trending products or searches
-- `POST /admin/search/reindex` - Trigger product reindexing
-- `GET /admin/search/index-status` - Check search index status
 
 Example:
 

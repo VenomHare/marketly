@@ -34,12 +34,4 @@ paymentsRouter.get("/vendor/settlements", async (req, res) => {
   res.status(500).json({ message: "Route not implemented" });
 });
 
-paymentsRouter.get("/admin/settlements", async (req, res) => {
-  res.status(500).json({ message: "Route not implemented" });
-});
-
-paymentsRouter.post("/admin/settlements/:uuid/retry", async (req, res) => {
-  res.status(500).json({ message: "Route not implemented" });
-});
-
 export default paymentsRouter;

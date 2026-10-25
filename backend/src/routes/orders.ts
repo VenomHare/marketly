@@ -30,12 +30,4 @@ ordersRouter.get("/orders/:uuid/tracking", async (req, res) => {
   res.status(500).json({ message: "Route not implemented" });
 });
 
-ordersRouter.get("/admin/orders", async (req, res) => {
-  res.status(500).json({ message: "Route not implemented" });
-});
-
-ordersRouter.patch("/admin/orders/:uuid/status", async (req, res) => {
-  res.status(500).json({ message: "Route not implemented" });
-});
-
 export default ordersRouter;

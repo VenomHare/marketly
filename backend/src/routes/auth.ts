@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User, Vendor } from "../models";
-import { authenticate, requireAdmin, requireVendor, AuthRequest } from "../middleware/auth";
+import { authenticate, requireVendor, AuthRequest } from "../middleware/auth";
 import { Router } from "express";
 import {
   registerSchema,
@@ -9,7 +9,6 @@ import {
   refreshTokenSchema,
   updateUserSchema,
   updatePasswordSchema,
-  updateUserStatusSchema,
 } from "../validators/auth";
 
 const authRouter = Router();
@@ -300,83 +299,6 @@ authRouter.patch("/users/me/password", authenticate, async (req: AuthRequest, re
 
 authRouter.get("/users/me/orders", authenticate, async (req: AuthRequest, res) => {
   res.json({ message: "Route not implemented yet" });
-});
-
-authRouter.get("/admin/users", authenticate, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const users = await User.find().sort({ created_at: -1 });
-
-    res.json(
-      users.map((user) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        created_at: user.created_at,
-        updated_at: user.updated_at,
-      }))
-    );
-  } catch (error) {
-    console.error("Get users error:", error);
-    res.status(500).json({ message: "Failed to fetch users" });
-  }
-});
-
-authRouter.get("/admin/users/:uuid", authenticate, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const user = await User.findById(req.params.uuid);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    });
-  } catch (error) {
-    console.error("Get user error:", error);
-    res.status(500).json({ message: "Failed to fetch user" });
-  }
-});
-
-authRouter.patch("/admin/users/:uuid/status", authenticate, requireAdmin, async (req: AuthRequest, res) => {
-  try {
-    const validation = updateUserStatusSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        message: "Invalid parameters"
-      });
-    }
-    const { status } = validation.data;
-
-    const user = await User.findByIdAndUpdate(
-      req.params.uuid,
-      { status, updated_at: new Date() },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      updated_at: user.updated_at,
-    });
-  } catch (error) {
-    console.error("Update user status error:", error);
-    res.status(500).json({ message: "Failed to update user status" });
-  }
 });
 
 export default authRouter;

@@ -25,8 +25,11 @@ describe("Auth Routes", () => {
     await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/marketly");
 
     // Clean up test data
-    await User.deleteMany({ email: { $in: ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"] } });
-    await Vendor.deleteMany({});
+    const testEmails = ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"];
+    const previousUsers = await User.find({ email: { $in: testEmails } }).select("_id");
+    const previousUserIds = previousUsers.map((user) => user.id);
+    await Vendor.deleteMany({ user_id: { $in: previousUserIds } });
+    await User.deleteMany({ email: { $in: testEmails } });
 
     // Create test users
     const passwordHash = await bcrypt.hash("password123", 10);
@@ -96,8 +99,11 @@ describe("Auth Routes", () => {
 
   afterAll(async () => {
     // Clean up test data
-    await User.deleteMany({ email: { $in: ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"] } });
-    await Vendor.deleteMany({});
+    const testEmails = ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"];
+    const testUsers = await User.find({ email: { $in: testEmails } }).select("_id");
+    const testUserIds = testUsers.map((user) => user.id);
+    await Vendor.deleteMany({ user_id: { $in: testUserIds } });
+    await User.deleteMany({ email: { $in: testEmails } });
     await mongoose.connection.close();
   });
 
