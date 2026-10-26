@@ -48,6 +48,21 @@ export const productReviewsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 }).strict();
 
+export const productReviewCreateSchema = z.object({
+  order_item_id: z.string().trim().regex(/^[a-f\d]{24}$/i),
+  rating: z.number().int().min(1).max(5),
+  title: z.string().trim().min(1).max(200).optional(),
+  comment: z.string().trim().min(1).max(5000),
+}).strict();
+
+export const reviewUpdateSchema = z.object({
+  rating: z.number().int().min(1).max(5).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
+  comment: z.string().trim().min(1).max(5000).optional(),
+}).strict().refine((review) => Object.keys(review).length > 0, {
+  message: "At least one review field must be provided",
+});
+
 export const relatedProductsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 }).strict();

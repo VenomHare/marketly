@@ -142,6 +142,26 @@ List reviews for an active product, newest first. Reviewer and order IDs are not
 
 Returns `{ "reviews": [{ "id", "rating", "title", "comment", "created_at" }], "pagination": { "page", "limit", "total", "pages" } }`. Products with no reviews return an empty list and `pages: 0`. Invalid query parameters or IDs return `400`; missing, draft, and archived products return `404`.
 
+### `POST /products/:uuid/reviews` — Customer
+
+Create a review for an active product the customer purchased in a paid, completed order. The request body requires `order_item_id`, an integer `rating` from 1 to 5, and a nonblank `comment`; `title` is optional. Only one review is allowed per order item. Returns `201` with the created review's public fields and updates the product's average rating and review count. Invalid IDs or bodies return `400`, inactive or missing products return `404`, ineligible purchases return `403`, and duplicate reviews return `409`.
+
+### `GET /reviews/:uuid` — Public
+
+Return a review's public fields. Reviewer and order IDs are omitted. Invalid IDs return `400`; missing reviews return `404`.
+
+### `PATCH /reviews/:uuid` — Customer
+
+Update an owned review. The body must include at least one of `rating` (integer from 1 to 5), `title` (1 to 200 characters), or `comment` (1 to 5,000 characters). Returns the updated public review and recalculates the product rating summary. Invalid IDs or bodies return `400`; non-owned or missing reviews return `404`.
+
+### `DELETE /reviews/:uuid` — Customer
+
+Delete an owned review. Returns `204` and recalculates the product rating summary. Invalid IDs return `400`; non-owned or missing reviews return `404`.
+
+### `GET /users/me/reviews` — Customer
+
+List the authenticated customer's reviews, newest first, with `page` and `limit` pagination (defaults to 1 and 20; maximum limit is 100). Reviewer and order IDs are omitted. Invalid query parameters return `400`.
+
 ## Related products
 
 ### `GET /products/:uuid/related` — Public
@@ -160,6 +180,5 @@ The older plural image endpoints remain placeholders and return `500`:
 
 - `POST /products/:uuid/images`
 - `DELETE /products/:uuid/images/:imageId`
-- `POST /products/:uuid/reviews`
 
 Use the singular image routes documented above.

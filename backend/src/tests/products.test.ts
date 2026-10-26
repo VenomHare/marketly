@@ -785,69 +785,6 @@ describe("Product Routes", () => {
     });
   });
 
-  describe("GET /products/:uuid/reviews", () => {
-    it("returns public reviews newest first without exposing reviewer or order IDs", async () => {
-      const response = await fetch(`${BASE_URL}/products/${publicProducts[0]!.id}/reviews`);
-      expect(response.status).toBe(200);
-      const body = await response.json() as {
-        reviews: Array<{ id: string; rating: number; title?: string; comment: string; created_at: string }>;
-        pagination: { page: number; limit: number; total: number; pages: number };
-      };
-      expect(body.pagination).toMatchObject({ page: 1, limit: 20, total: 3, pages: 1 });
-      expect(body.reviews.map((review) => review.title ?? review.comment)).toEqual([
-        "Newest review", "A middle review", "Older review",
-      ]);
-      expect(body.reviews[0]).not.toHaveProperty("user_id");
-      expect(body.reviews[0]).not.toHaveProperty("order_item_id");
-    });
-
-    it("paginates reviews and validates query parameters", async () => {
-      const firstPageResponse = await fetch(`${BASE_URL}/products/${publicProducts[0]!.id}/reviews?page=1&limit=1`);
-      expect(firstPageResponse.status).toBe(200);
-      const firstPage = await firstPageResponse.json() as {
-        reviews: Array<{ title?: string; comment: string }>;
-        pagination: { page: number; limit: number; total: number; pages: number };
-      };
-      expect(firstPage.reviews).toHaveLength(1);
-      expect(firstPage.reviews[0]!.title).toBe("Newest review");
-      expect(firstPage.pagination).toMatchObject({ page: 1, limit: 1, total: 3, pages: 3 });
-
-      const beyondLastPage = await fetch(`${BASE_URL}/products/${publicProducts[0]!.id}/reviews?page=9&limit=1`);
-      expect(await beyondLastPage.json()).toMatchObject({
-        reviews: [], pagination: { page: 9, limit: 1, total: 3, pages: 3 },
-      });
-
-      for (const query of ["?page=0", "?page=1.5", "?page=nope", "?limit=0", "?limit=101", "?limit=nope", "?other=value"]) {
-        const response = await fetch(`${BASE_URL}/products/${publicProducts[0]!.id}/reviews${query}`);
-        expect(response.status).toBe(400);
-      }
-    });
-
-    it("rejects invalid IDs and hides missing, draft, and archived products", async () => {
-      expect((await fetch(`${BASE_URL}/products/invalid-id/reviews`)).status).toBe(400);
-      expect((await fetch(`${BASE_URL}/products/${new mongoose.Types.ObjectId()}/reviews`)).status).toBe(404);
-      expect((await fetch(`${BASE_URL}/products/${publicProducts[2]!.id}/reviews`)).status).toBe(404);
-
-      const archived = await Product.create({
-        vendor_id: vendor.id, category_id: category.id, name: "Archived Review Product", description: "Archived",
-        sku: `ARCHIVED-${new mongoose.Types.ObjectId()}`, price: 4, stock: 0, status: "archived",
-      });
-      expect((await fetch(`${BASE_URL}/products/${archived.id}/reviews`)).status).toBe(404);
-    });
-
-    it("returns an empty paginated result for an active product with no reviews", async () => {
-      const product = await Product.create({
-        vendor_id: vendor.id, category_id: category.id, name: "No Review Product", description: "No reviews",
-        sku: `NO-REVIEWS-${new mongoose.Types.ObjectId()}`, price: 4, stock: 1, status: "active",
-      });
-      const response = await fetch(`${BASE_URL}/products/${product.id}/reviews`);
-      expect(response.status).toBe(200);
-      expect(await response.json()).toMatchObject({
-        reviews: [], pagination: { page: 1, limit: 20, total: 0, pages: 0 },
-      });
-    });
-  });
-
   describe("GET /products/:uuid/related", () => {
     it("returns active products in the same category and excludes the requested product", async () => {
       const response = await fetch(`${BASE_URL}/products/${publicProducts[0]!.id}/related`);

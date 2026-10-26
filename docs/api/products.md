@@ -15,7 +15,8 @@ Base prefix: `/api/v1`. Product management writes require `Authorization: Bearer
 | `POST /products/:uuid/images` | Path `uuid`; body not parsed | Verified vendor | Not implemented: `500 {message:"Route not implemented"}` |
 | `DELETE /products/:uuid/images/:imageId` | Path `uuid`, `imageId` | Verified vendor | Not implemented: `500 {message:"Route not implemented"}` |
 | `PUT /products/:uuid/images/reorder` | Path `uuid`; body not parsed | Verified vendor | Not implemented: `500 {message:"Route not implemented"}` |
-| `GET /products/:uuid/reviews` | Path `uuid`; no query parsing | Public | Not implemented: `500 {message:"Route not implemented"}` |
+| `GET /products/:uuid/reviews` | Path `uuid`; paginated | Public | Lists reviews for an active product |
+| `POST /products/:uuid/reviews` | Path `uuid`; body: `order_item_id`, `rating`, `comment`, optional `title` | Customer | Creates a review for the customer's paid, completed purchase |
 | `GET /products/:uuid/related` | Path `uuid`; no query parsing | Public | Not implemented: `500 {message:"Route not implemented"}` |
 
 ## Authentication responses
