@@ -1,4 +1,5 @@
-import { PutObjectCommand, S3Client, type PutObjectCommandInput } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client, type PutObjectCommandInput } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type ObjectStorageBody = NonNullable<PutObjectCommandInput["Body"]>;
 
@@ -9,6 +10,18 @@ export interface UploadObjectOptions {
   contentType?: string;
   bucket?: string;
   metadata?: Record<string, string>;
+}
+
+export interface PresignedUploadOptions {
+  key: string;
+  contentType: string;
+  expiresIn?: number;
+  bucket?: string;
+}
+
+export interface StoredObjectInfo {
+  contentType?: string;
+  contentLength?: number;
 }
 
 
@@ -78,4 +91,44 @@ export async function uploadObject({
   }));
 
   return { bucket, key: normalizedKey, etag: result.ETag };
+}
+
+export async function createPresignedUploadUrl({
+  key,
+  contentType,
+  expiresIn = 600,
+  bucket = process.env.OBJECT_STORAGE_BUCKET,
+}: PresignedUploadOptions): Promise<string> {
+  const normalizedKey = key.trim();
+  if (
+    !normalizedKey ||
+    normalizedKey.startsWith("/") ||
+    normalizedKey.split("/").some((segment) => !segment || segment === "." || segment === "..") ||
+    Buffer.byteLength(normalizedKey, "utf8") > 1024
+  ) {
+    throw new Error("Invalid object storage key");
+  }
+  if (!bucket) throw new Error("OBJECT_STORAGE_BUCKET must be configured or a bucket must be provided");
+  if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > 604800) {
+    throw new Error("Presigned URL expiry must be between 1 and 604800 seconds");
+  }
+
+  return getSignedUrl(
+    getStorageClient(),
+    new PutObjectCommand({ Bucket: bucket, Key: normalizedKey, ContentType: contentType }),
+    { expiresIn }
+  );
+}
+
+export async function getUploadedObjectInfo(key: string): Promise<StoredObjectInfo> {
+  const bucket = process.env.OBJECT_STORAGE_BUCKET;
+  if (!bucket) throw new Error("OBJECT_STORAGE_BUCKET must be configured");
+  const result = await getStorageClient().send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+  return { contentType: result.ContentType, contentLength: result.ContentLength };
+}
+
+export async function deleteStoredObject(key: string): Promise<void> {
+  const bucket = process.env.OBJECT_STORAGE_BUCKET;
+  if (!bucket) throw new Error("OBJECT_STORAGE_BUCKET must be configured");
+  await getStorageClient().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
