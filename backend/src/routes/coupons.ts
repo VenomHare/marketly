@@ -4,6 +4,7 @@ import { Coupon, CouponRedemption } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 
 const couponsRouter = Router();
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const couponsListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -96,7 +97,7 @@ couponsRouter.post("/coupons/validate", async (req, res) => {
 
   try {
     const { code, subtotal_paise: subtotalPaise } = validation.data;
-    const coupon = await Coupon.findOne({ code: code.toUpperCase() }).lean();
+    const coupon = await Coupon.findOne({ code: new RegExp(`^${escapeRegex(code)}$`, "i") }).lean();
     if (!coupon) return res.status(200).json({ valid: false, message: "Coupon not found" });
 
     const now = new Date();

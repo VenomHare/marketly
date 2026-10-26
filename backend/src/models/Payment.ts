@@ -23,7 +23,7 @@ const PaymentSchema = new Schema<IPayment>(
     status: { type: String, enum: ["created", "processing", "success", "failed", "refunded"], default: "created" },
     amount_paise: { type: Number, required: true },
     currency: { type: String, enum: ["INR"], default: "INR" },
-    idempotency_key: { type: String, required: true },
+    idempotency_key: { type: String, required: true, unique: true },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },

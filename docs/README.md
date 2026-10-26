@@ -2,6 +2,18 @@
 
 This documentation describes the Express API mounted at `/api/v1` and the source layout. GitHub renders these relative links and the heading outline for navigation.
 
+## Local infrastructure
+
+Start MongoDB, Elasticsearch, and Redis from the repository root with:
+
+```sh
+docker compose --env-file backend/.env.example up -d
+```
+
+The example file contains development-only credentials and connection URLs. Copy it to `backend/.env` for the backend application. Elasticsearch may require `vm.max_map_count=262144` on Linux hosts.
+
+Checkout and cart merging use MongoDB transactions. Run the MongoDB service from this Compose file, which initializes a single-node `rs0` replica set; a standalone local `mongod` will fail those routes with `Transaction numbers are only allowed on a replica set member or mongos`.
+
 ## Browse the API
 
 - [API index](api/README.md) — endpoint catalog grouped by router.
@@ -18,7 +30,6 @@ This documentation describes the Express API mounted at `/api/v1` and the source
 - [Vendor orders](api/vendor-orders.md)
 - [Payments](api/payments.md)
 - [Reviews](api/reviews.md)
-- [Analytics](api/analytics.md)
 - [Search](api/search.md)
 
 ## Source map

@@ -11,6 +11,7 @@ export { default as Coupon } from "./Coupon";
 export { default as CouponRedemption } from "./CouponRedemption";
 export { default as Order } from "./Order";
 export { default as OrderItem } from "./OrderItem";
+export { default as ReturnRequest } from "./ReturnRequest";
 export { default as VendorOrder } from "./VendorOrder";
 export { default as Payment } from "./Payment";
 export { default as VendorSettlement } from "./VendorSettlement";

@@ -19,7 +19,6 @@ The server mounts all routers at `/api/v1`. Choose a router page below; each pag
 | Vendor orders | 6 | [vendor-orders.md](vendor-orders.md) |
 | Payments | 8 | [payments.md](payments.md) |
 | Reviews | 6 | [reviews.md](reviews.md) |
-| Analytics | 0 | [analytics.md](analytics.md) |
 | Search | 3 | [search.md](search.md) |
 
 ## Authentication
@@ -38,5 +37,5 @@ Protected handlers expect `Authorization: Bearer <JWT>`. The middleware reports 
 
 ## Source of truth
 
-Contracts were checked against `src/routes/*.ts`, `src/validators/*.ts`, `src/middleware/auth.ts`, and the route tests in `src/tests/*.test.ts`. Route tests cover auth, coupons, products, and vendors. For example, see [auth tests](../../src/tests/auth.test.ts), [coupon tests](../../src/tests/coupons.test.ts), [product tests](../../src/tests/products.test.ts), and [vendor tests](../../src/tests/vendors.test.ts).
+Contracts were checked against `src/routes/*.ts`, `src/validators/*.ts`, `src/middleware/auth.ts`, and the route tests in `src/tests/*.test.ts`. Route tests cover auth, coupons, orders, products, and vendors. For example, see [auth tests](../../src/tests/auth.test.ts), [coupon tests](../../src/tests/coupons.test.ts), [order tests](../../src/tests/orders.test.ts), [product tests](../../src/tests/products.test.ts), and [vendor tests](../../src/tests/vendors.test.ts).
 

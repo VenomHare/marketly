@@ -15,7 +15,6 @@ import ordersRouter from "./routes/orders";
 import vendorOrdersRouter from "./routes/vendorOrders";
 import paymentsRouter from "./routes/payments";
 import reviewsRouter from "./routes/reviews";
-import analyticsRouter from "./routes/analytics";
 import searchRouter from "./routes/search";
 
 dotenv.config();
@@ -45,12 +44,11 @@ app.use("/api/v1", categoriesRouter);
 app.use("/api/v1", uploadsRouter);
 app.use("/api/v1", cartRouter);
 app.use("/api/v1", addressesRouter);
+app.use("/api/v1", reviewsRouter);
 app.use("/api/v1", couponsRouter);
 app.use("/api/v1", ordersRouter);
 app.use("/api/v1", vendorOrdersRouter);
 app.use("/api/v1", paymentsRouter);
-app.use("/api/v1", reviewsRouter);
-app.use("/api/v1", analyticsRouter);
 app.use("/api/v1", searchRouter);
 
 // Global error handler
