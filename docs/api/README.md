@@ -38,5 +38,5 @@ Protected handlers expect `Authorization: Bearer <JWT>`. The middleware reports 
 
 ## Source of truth
 
-Contracts were checked against `src/routes/*.ts`, `src/validators/*.ts`, `src/middleware/auth.ts`, and the route tests in `src/tests/*.test.ts`. The currently present tests cover auth, products, and vendors. For example, see [auth tests](../../src/tests/auth.test.ts), [product tests](../../src/tests/products.test.ts), and [vendor tests](../../src/tests/vendors.test.ts).
+Contracts were checked against `src/routes/*.ts`, `src/validators/*.ts`, `src/middleware/auth.ts`, and the route tests in `src/tests/*.test.ts`. Route tests cover auth, coupons, products, and vendors. For example, see [auth tests](../../src/tests/auth.test.ts), [coupon tests](../../src/tests/coupons.test.ts), [product tests](../../src/tests/products.test.ts), and [vendor tests](../../src/tests/vendors.test.ts).
 
