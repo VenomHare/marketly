@@ -56,6 +56,9 @@ app.use("/api/v1", searchRouter);
 // Global error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error("Unhandled error:", err);
+  if ((err as Error & { status?: number }).status === 400) {
+    return res.status(400).json({ message: "Invalid request body" });
+  }
   res.status(500).json({ message: "Something went wrong" });
 });
 
