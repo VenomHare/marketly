@@ -1,0 +1,75 @@
+services:
+  mongodb:
+    image: mongo:8.0.5
+    restart: unless-stopped
+    # Transactions used by cart merging and checkout require a replica set.
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        rm -f /tmp/mongodb-keyfile
+        printf '%s' 'bWFya2V0bHktbG9jYWwtZGV2ZWxvcG1lbnQta2V5ZmlsZQ==' > /tmp/mongodb-keyfile
+        chmod 400 /tmp/mongodb-keyfile
+        chown mongodb:mongodb /tmp/mongodb-keyfile
+        exec /usr/local/bin/docker-entrypoint.sh mongod --replSet rs0 --keyFile /tmp/mongodb-keyfile --bind_ip_all
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME:-marketly}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-marketly_mongo_dev_password}
+      MONGO_INITDB_DATABASE: marketly
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mongosh --quiet --username "$${MONGO_INITDB_ROOT_USERNAME}" --password "$${MONGO_INITDB_ROOT_PASSWORD}"
+          --authenticationDatabase admin --eval 'try { rs.status().ok } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]}).ok }'
+          | grep 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4.2-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-marketly_redis_dev_password}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.2
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD:-marketly_elastic_dev_password}
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl -fsSk -u "elastic:$${ELASTIC_PASSWORD}" 'https://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+volumes:
+  mongodb_data:
+  redis_data:
+  elasticsearch_data:
