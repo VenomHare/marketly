@@ -613,7 +613,8 @@ describe("Vendor Routes", () => {
       expect(body.pagination).toEqual({ page: 1, limit: 1, total: 2, pages: 2 });
 
       const secondPage = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=2&limit=1`);
-      expect((await secondPage.json()).products[0].name).toBe("Listed One");
+      const secondPageBody = await secondPage.json() as { products: Array<{ name: string }> };
+      expect(secondPageBody.products[0]?.name).toBe("Listed One");
     });
 
     it("returns an empty paginated list when the page has no results", async () => {
