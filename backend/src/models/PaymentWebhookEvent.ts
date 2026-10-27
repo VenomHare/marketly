@@ -22,4 +22,6 @@ const PaymentWebhookEventSchema = new Schema<IPaymentWebhookEvent>(
   { timestamps: { createdAt: "received_at" } }
 );
 
+PaymentWebhookEventSchema.index({ provider: 1, provider_event_id: 1 }, { unique: true });
+
 export default mongoose.model<IPaymentWebhookEvent>("PaymentWebhookEvent", PaymentWebhookEventSchema);

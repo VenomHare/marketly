@@ -182,6 +182,22 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - created_at: timestamp
 - updated_at: timestamp
 
+**PaymentRefundRequest**
+- id: uuid (string)
+- payment_id: uuid (FK → Payment)
+- order_id: uuid (FK → Order)
+- user_id: uuid (FK → User; requesting customer)
+- reason: string (trimmed, max 1,000 characters)
+- amount_paise: number (full payment amount, determined server-side)
+- status: "requested" | "processing" | "refunded" | "failed" | "rejected" | "cancelled"
+- provider_refund_id: string (optional; Razorpay refund ID)
+- reviewed_by: uuid (FK → User, optional; admin reviewer)
+- reviewed_at: timestamp (optional)
+- created_at: timestamp
+- updated_at: timestamp
+
+Refund request records are retained for audit. The collection has a non-unique compound index on `{ payment_id, status }`; application logic serializes request creation per payment and allows admin review only while status is `requested`.
+
 **VendorSettlement**
 - id: uuid (string)
 - vendor_order_id: uuid (FK → VendorOrder)
@@ -350,16 +366,30 @@ Registration creates customer accounts only; clients cannot choose a role. Admin
 - `PATCH /vendor-orders/{uuid}/shipment` - Update shipment details
 - `GET /vendor-orders/{uuid}/history` - Get order status history
 
-### 11. Payments — Razorpay / Stripe
+### 11. Payments — Razorpay
 
-- `POST /payments/create` - Create a payment attempt
-- `GET /payments/{uuid}` - Get payment status
-- `POST /payments/{uuid}/verify` - Verify payment with provider
-- `POST /payments/{uuid}/retry` - Retry an eligible failed payment
-- `POST /payments/{uuid}/refund` - Request a refund
-- `POST /webhooks/razorpay` - Receive Razorpay webhook events
-- `POST /webhooks/stripe` - Receive Stripe webhook events
-- `GET /vendor/settlements` - Get vendor settlement history
+Customer routes require authentication and are scoped to the signed-in customer's payment. Payment creation uses the payment ID returned by checkout; the server uses the stored amount and currency rather than accepting a client price.
+
+- `POST /payments/create` - Create a Razorpay order for a checkout-created payment (`payment_id`); repeated calls reuse the existing provider order
+- `GET /payments/{uuid}` - Get own payment status and latest refund request
+- `POST /payments/{uuid}/verify` - Verify Razorpay order/payment/signature and update payment and order state
+- `POST /payments/{uuid}/retry` - Return the existing Razorpay order for a pending payment; if no provider order exists, use `/payments/create`
+- `POST /payments/{uuid}/refund` - Create a full refund request with a reason; does not send a refund to Razorpay
+- `GET /payments/{uuid}/refund` - Read own latest refund request
+- `DELETE /payments/{uuid}/refund` - Cancel own request while its status is `requested` (soft delete; status becomes `cancelled`)
+- `POST /webhooks/razorpay` - Verify webhook signature against the raw request body and process provider events idempotently
+
+Admin refund review routes require authentication and the admin role:
+
+- `GET /admin/refund-requests` - List up to 100 refund requests, oldest first
+- `GET /admin/refund-requests/{uuid}` - Get one refund request, including provider and review metadata
+- `POST /admin/refund-requests/{uuid}/approve` - Claim a requested refund and send the full refund to Razorpay; concurrent approvals are guarded
+- `POST /admin/refund-requests/{uuid}/reject` - Reject a request that is still `requested`
+
+Stripe webhook and vendor settlement routes are currently disabled and return `501`:
+
+- `POST /webhooks/stripe`
+- `GET /vendor/settlements`
 
 ### 12. Reviews
 

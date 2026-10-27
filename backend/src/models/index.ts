@@ -19,5 +19,6 @@ export { default as Shipment } from "./Shipment";
 export { default as OrderStatusHistory } from "./OrderStatusHistory";
 export { default as Review } from "./Review";
 export { default as PaymentWebhookEvent } from "./PaymentWebhookEvent";
+export { default as PaymentRefundRequest } from "./PaymentRefundRequest";
 export { default as InventoryMovement } from "./InventoryMovement";
 export { default as AdminAuditLog } from "./AdminAuditLog";
