@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { SortOrder } from "mongoose";
 import { Category, Product, ProductImage } from "../models";
 import { AuthRequest, authenticate, requireVerifiedVendor } from "../middleware/auth";
+import { syncProductDeletion, syncProductIndex } from "../utils/elasticsearch";
 import {
   productsListQuerySchema,
   productCreateSchema,
@@ -43,6 +44,8 @@ productsRouter.post("/products", authenticate, requireVerifiedVendor, async (req
       stock,
       status: "draft",
     });
+
+    await syncProductIndex(product);
 
     return res.status(201).json({
       id: product.id,
@@ -198,6 +201,8 @@ productsRouter.patch("/products/:uuid", authenticate, requireVerifiedVendor, asy
     );
     if (!product) return res.status(404).json({ message: "Product not found" });
 
+    await syncProductIndex(product);
+
     return res.json({
       id: product.id,
       vendor_id: product.vendor_id,
@@ -235,6 +240,7 @@ productsRouter.delete("/products/:uuid", authenticate, requireVerifiedVendor, as
       { new: true, runValidators: true }
     );
     if (!product) return res.status(404).json({ message: "Product not found" });
+    await syncProductDeletion(productId);
     return res.status(204).send();
   } catch (error) {
     console.error("Delete product error:", error);
@@ -259,6 +265,8 @@ productsRouter.patch("/products/:uuid/status", authenticate, requireVerifiedVend
       { new: true, runValidators: true }
     );
     if (!product) return res.status(404).json({ message: "Product not found" });
+
+    await syncProductIndex(product);
 
     return res.json({
       id: product.id,
@@ -298,6 +306,8 @@ productsRouter.patch("/products/:uuid/stock", authenticate, requireVerifiedVendo
       { new: true, runValidators: true }
     );
     if (!product) return res.status(404).json({ message: "Product not found" });
+
+    await syncProductIndex(product);
 
     return res.json({
       id: product.id,

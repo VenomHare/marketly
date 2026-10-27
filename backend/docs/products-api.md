@@ -57,7 +57,7 @@ Partially update one non-archived product. Any non-empty subset of the `POST /pr
 
 ### `DELETE /products/:uuid` — Verified vendor, product owner
 
-Archive the product and return `204 No Content`. This preserves historical references. Missing, archived, and non-owned products return `404`; invalid IDs return `400`.
+Archive the product, remove its document from Elasticsearch, and return `204 No Content`. This preserves historical references. Missing, archived, and non-owned products return `404`; invalid IDs return `400`. If Elasticsearch is unavailable, the archive still succeeds and the removal is queued for retry.
 
 ### `PATCH /products/:uuid/status` — Verified vendor, product owner
 
@@ -78,6 +78,8 @@ Set stock to a non-negative integer. Zero is valid.
 ```
 
 Returns the updated product. Invalid input returns `400`; missing, archived, and non-owned products return `404`.
+
+Successful create, edit, status, and vendor stock operations also upsert the product document in Elasticsearch. If Elasticsearch is unavailable, the MongoDB write still succeeds and the failed sync is queued for in-memory retry.
 
 ## Product images
 
@@ -173,6 +175,10 @@ List active products in the same category, excluding the requested product. Resu
 | `limit` | `10` | Integer from 1 to 50 |
 
 Returns `{ "products": [...] }`. Invalid query parameters or IDs return `400`; missing, draft, and archived products return `404`. No matching products returns an empty list.
+
+## Search index synchronization
+
+The API creates the Elasticsearch `products` index and its mappings on the first product upsert. Review creation, edit, and deletion refresh the indexed `average_rating` and `review_count`. Search reads only active documents. Retry operations are held in memory and are lost on API process restart; existing MongoDB records are not automatically reindexed, and order-driven stock changes do not currently refresh indexed documents. See the [search route contract](../../docs/api/search.md) for query parameters and response shapes.
 
 ## Not implemented
 

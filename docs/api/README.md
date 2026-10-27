@@ -1,3 +1,11 @@
+---
+layout: default
+title: API Reference
+nav_order: 3
+has_children: true
+permalink: /api/
+---
+
 # API reference
 
 The server mounts all routers at `/api/v1`. Choose a router page below; each page lists method, path, inputs, authentication, and observed responses.
@@ -6,20 +14,20 @@ The server mounts all routers at `/api/v1`. Choose a router page below; each pag
 
 | Router | Routes | Documentation |
 | --- | ---: | --- |
-| Auth | 8 | [auth.md](auth.md) |
-| Admin | 29 | [admin.md](admin.md) |
-| Vendors | 10 | [vendors.md](vendors.md) |
-| Products | 13 | [products.md](products.md) |
-| Categories | 3 | [categories.md](categories.md) |
-| Uploads | 3 | [uploads.md](uploads.md) |
-| Cart | 7 | [cart.md](cart.md) |
-| Addresses | 5 | [addresses.md](addresses.md) |
-| Coupons | 4 | [coupons.md](coupons.md) |
-| Orders | 7 | [orders.md](orders.md) |
-| Vendor orders | 6 | [vendor-orders.md](vendor-orders.md) |
-| Payments | 8 | [payments.md](payments.md) |
-| Reviews | 6 | [reviews.md](reviews.md) |
-| Search | 3 | [search.md](search.md) |
+| Auth | 8 | [auth](auth.html) |
+| Admin | 29 | [admin](admin.html) |
+| Vendors | 10 | [vendors](vendors.html) |
+| Products | 13 | [products](products.html) |
+| Categories | 3 | [categories](categories.html) |
+| Uploads | 3 | [uploads](uploads.html) |
+| Cart | 7 | [cart](cart.html) |
+| Addresses | 5 | [addresses](addresses.html) |
+| Coupons | 4 | [coupons](coupons.html) |
+| Orders | 7 | [orders](orders.html) |
+| Vendor orders | 6 | [vendor-orders](vendor-orders.html) |
+| Payments | 8 | [payments](payments.html) |
+| Reviews | 6 | [reviews](reviews.html) |
+| Search | 3 | [search](search.html) |
 
 ## Authentication
 
@@ -37,5 +45,5 @@ Protected handlers expect `Authorization: Bearer <JWT>`. The middleware reports 
 
 ## Source of truth
 
-Contracts were checked against `src/routes/*.ts`, `src/validators/*.ts`, `src/middleware/auth.ts`, and the route tests in `src/tests/*.test.ts`. Route tests cover auth, coupons, orders, products, and vendors. For example, see [auth tests](../../src/tests/auth.test.ts), [coupon tests](../../src/tests/coupons.test.ts), [order tests](../../src/tests/orders.test.ts), [product tests](../../src/tests/products.test.ts), and [vendor tests](../../src/tests/vendors.test.ts).
+Contracts were checked against `backend/src/routes/*.ts`, `backend/src/validators/*.ts`, `backend/src/middleware/auth.ts`, and route tests in `backend/src/tests/*.test.ts`. For example, see [auth tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/auth.test.ts), [coupon tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/coupons.test.ts), [order tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/orders.test.ts), [product tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/products.test.ts), [search tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/search.test.ts), [Elasticsearch indexing tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/elasticsearch-index.test.ts), and [vendor tests](https://github.com/VenomHare/marketly/blob/main/backend/src/tests/vendors.test.ts).
 

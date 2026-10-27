@@ -7,3 +7,8 @@ dist
 coverage
 data/*.sqlite
 *.log
+
+# Jekyll documentation build output and local cache.
+docs/_site/
+docs/.jekyll-cache/
+docs/.bundle/

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Order, OrderItem, Product, Review } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 import { productReviewCreateSchema, productReviewsQuerySchema, reviewUpdateSchema } from "../validators/products";
+import { syncProductIndex } from "../utils/elasticsearch";
 
 const reviewsRouter = Router();
 
@@ -14,6 +15,8 @@ const updateProductReviewSummary = async (productId: string) => {
     average_rating: summary?.average_rating ?? 0,
     review_count: summary?.review_count ?? 0,
   });
+  const product = await Product.findById(productId);
+  if (product) await syncProductIndex(product);
 };
 
 reviewsRouter.post("/products/:uuid/reviews", authenticate, async (req: AuthRequest, res) => {

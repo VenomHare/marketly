@@ -1,6 +1,13 @@
+---
+layout: default
+title: Vendors
+parent: API Reference
+nav_order: 3
+---
+
 # Vendor routes
 
-Base prefix: `/api/v1`. Vendor-owned routes require a bearer JWT with vendor role and an existing vendor profile. See [authentication](auth.md#authentication-and-user-routes).
+Base prefix: `/api/v1`. Vendor-owned routes require a bearer JWT with vendor role and an existing vendor profile. See [authentication](auth.html#authentication-and-user-routes).
 
 ## `POST /vendors`
 

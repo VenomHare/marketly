@@ -1,3 +1,10 @@
+---
+layout: default
+title: Addresses
+parent: API Reference
+nav_order: 8
+---
+
 # Address routes
 
 Base prefix: `/api/v1`. `POST` and `GET /addresses` require a customer bearer token and only access the authenticated customer's addresses.

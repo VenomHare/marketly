@@ -1,3 +1,10 @@
+---
+layout: default
+title: Orders and checkout
+parent: API Reference
+nav_order: 10
+---
+
 # Checkout and order routes
 
 Base prefix: `/api/v1`.

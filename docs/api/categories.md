@@ -1,3 +1,10 @@
+---
+layout: default
+title: Categories
+parent: API Reference
+nav_order: 5
+---
+
 # Category routes
 
 Base prefix: `/api/v1`. Handlers are public. `GET /categories/:uuid/products` is implemented; it returns active products only. The remaining listed route returns `500 {message:"Route not implemented"}`.

@@ -1,3 +1,10 @@
+---
+layout: default
+title: Reviews
+parent: API Reference
+nav_order: 13
+---
+
 # Review routes
 
 Base prefix: `/api/v1`.

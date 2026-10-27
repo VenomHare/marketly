@@ -1,3 +1,10 @@
+---
+layout: default
+title: Cart
+parent: API Reference
+nav_order: 7
+---
+
 # Cart routes
 
 Base prefix: `/api/v1`. Guest cart routes use a `session_id`; `POST /cart/merge` additionally requires customer authentication. `GET /cart` accepts an optional guest `session_id` query parameter.

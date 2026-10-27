@@ -1,3 +1,10 @@
+---
+layout: default
+title: Administration
+parent: API Reference
+nav_order: 2
+---
+
 # Administration routes
 
 Base prefix: `/api/v1`. Routes marked **Admin auth** require a bearer JWT and admin role. The current module contains both protected handlers and unprotected placeholders; this page reflects the actual middleware attached in code.

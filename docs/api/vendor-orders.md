@@ -1,3 +1,10 @@
+---
+layout: default
+title: Vendor orders
+parent: API Reference
+nav_order: 11
+---
+
 # Vendor order routes
 
 Base prefix: `/api/v1`. Every route requires an authenticated vendor with a vendor profile and an active user account. Vendors can access only their own fulfillment orders. Missing credentials return `401`; invalid tokens return `401`; other roles or vendors without a profile return `403`; suspended or missing user accounts return `403 {"message":"Active vendor account required"}`.

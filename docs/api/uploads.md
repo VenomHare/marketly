@@ -1,3 +1,10 @@
+---
+layout: default
+title: Uploads
+parent: API Reference
+nav_order: 6
+---
+
 # Upload routes
 
 Base prefix: `/api/v1`. Upload sessions are cached in Redis; configure `REDIS_URL`. All upload session routes require a vendor bearer token.

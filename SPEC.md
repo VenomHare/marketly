@@ -17,7 +17,7 @@
 
 
 ## Stack
-1. **Backend:** Express.js, MongoDB Razorpay, Elastic Search, Redis (Caching)
+1. **Backend:** Express.js, MongoDB, Razorpay, Elasticsearch, and Redis
 2. **Frontend:** React, Vite, TailwindCSS, React Router
 
 > [!NOTE]
@@ -449,12 +449,16 @@ All routes in this section require the admin role.
 - `GET /admin/analytics/payments` - Get payment success and failure metrics
 - `GET /admin/analytics/commissions` - Get platform commission totals
 
-#### Search index
+#### Planned admin search-index operations
+
+These admin endpoints are planned and are not implemented in the current code:
 
 - `POST /admin/search/reindex` - Trigger product reindexing
 - `GET /admin/search/index-status` - Check search index status
 
 ### 14. Search & Elasticsearch
+
+The current implementation stores products in MongoDB and mirrors product documents to Elasticsearch's `products` index for search. The index and explicit field mappings are created on the first product upsert. Create, edit, status, vendor stock, and review-summary mutations synchronize their documents; archive removes its document. If Elasticsearch is unavailable, MongoDB writes succeed and an in-memory retry queue attempts synchronization with increasing delays. Retries do not survive an API process restart, existing products are not automatically backfilled, and order-driven stock changes do not currently refresh indexed documents. The admin reindex and index-status operations above remain planned.
 
 - `GET /search/products` - Search products with filters and sorting
 - `GET /search/suggestions` - Get autocomplete suggestions

@@ -1,3 +1,10 @@
+---
+layout: default
+title: Coupons
+parent: API Reference
+nav_order: 9
+---
+
 # Coupon routes
 
 Base prefix: `/api/v1`.

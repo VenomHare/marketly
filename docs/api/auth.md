@@ -1,3 +1,10 @@
+---
+layout: default
+title: Authentication
+parent: API Reference
+nav_order: 1
+---
+
 # Authentication and user routes
 
 Base prefix: `/api/v1`. JWT access tokens expire in 7 days; refresh tokens expire in 30 days. Protected routes require `Authorization: Bearer <token>`.

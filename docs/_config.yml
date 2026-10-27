@@ -1,0 +1,24 @@
+title: Marketly Docs
+description: Backend API reference and architecture notes for Marketly.
+theme: just-the-docs
+
+url: https://venomhare.github.io
+baseurl: /marketly
+
+search_enabled: true
+heading_anchors: true
+back_to_top: true
+back_to_top_text: "Back to top"
+color_scheme: light
+
+aux_links:
+  Marketly on GitHub: https://github.com/VenomHare/marketly
+
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: https://github.com/VenomHare/marketly
+gh_edit_branch: main
+gh_edit_source: docs
+
+plugins:
+  - jekyll-seo-tag

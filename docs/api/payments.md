@@ -1,6 +1,15 @@
+---
+layout: default
+title: Payments
+parent: API Reference
+nav_order: 12
+---
+
 # Payments and refund requests
 
 Base prefix: `/api/v1`. Payment routes use Razorpay. Authenticated customer routes require a customer bearer token; admin refund review routes require an admin bearer token.
+
+Configure `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` in `backend/.env`. The example file leaves these values blank; use Razorpay test credentials for local payment testing.
 
 ## Payments
 
