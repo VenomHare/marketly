@@ -61,6 +61,5 @@ All handlers below currently return `500 {message:"Route not implemented"}` and 
 | `POST /admin/search/reindex` | None |
 | `GET /admin/search/index-status` | None |
 
-> [!WARNING]
-> Middleware omissions above are present in the route implementation. In particular, do not treat the unprotected placeholders as secured admin APIs.
+The middleware column reflects the implementation: routes listed with no auth middleware are currently reachable without admin authentication, including the placeholder handlers. The implemented user management routes require admin authentication.
 

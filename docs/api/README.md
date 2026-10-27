@@ -33,8 +33,7 @@ The server mounts all routers at `/api/v1`. Choose a router page below; each pag
 
 Protected handlers expect `Authorization: Bearer <JWT>`. The middleware reports `401 {"message":"No token provided"}` for a missing or non-Bearer header and `401 {"message":"Invalid or expired token"}` for an invalid token. Role middleware can return `403` with `Admin access required`, `Vendor access required`, `Vendor profile not found`, or `Vendor must be verified to access this resource`.
 
-> [!IMPORTANT]
-> A route is marked protected only when its implementation attaches authentication middleware. Do not infer protection from a route's name.
+Routes are marked protected only when their implementation attaches authentication middleware. The route tables document the middleware attached to each endpoint.
 
 ## Contract and status notes
 

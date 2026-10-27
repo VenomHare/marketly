@@ -53,6 +53,5 @@ Vendor auth and active account. Query `page` integer ≥1 (default 1), `limit` i
 
 Vendor auth and active account. Same pagination query as vendor orders. `200` `{settlements:[{id,vendor_order_id,gross_paise,commission_paise,refund_paise,net_paise,status,created_at,settled_at}],pagination:{page,limit,total,pages}}`. Provider transfer identifiers are not returned. Errors: `400`, `401`, `403`, `500 {message:"Failed to fetch vendor settlements"}`.
 
-> [!NOTE]
-> Tests verify vendor ownership scoping, pagination, hidden private fields, and KYC document keys never being included in responses.
+Vendor route tests cover ownership scoping, pagination, private field filtering, and exclusion of KYC document keys from responses.
 

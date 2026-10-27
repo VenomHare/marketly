@@ -61,6 +61,7 @@ Checkout and cart merging use MongoDB transactions. Run the MongoDB service from
 - `—` means the handler does not read that input in its current implementation.
 - **Not implemented** means the handler currently returns HTTP `500` with `{"message":"Route not implemented"}`. No success contract is defined yet.
 
-> [!NOTE]
-> These pages describe the current code and tests. They do not imply intended future behavior for placeholder handlers.
+## Backend services
+
+The API persists users, catalog data, carts, orders, payments, and vendor operations in MongoDB. Redis supports upload sessions and selected locks. Elasticsearch powers product search and receives product and review updates. Razorpay handles payment operations when credentials are configured. See the router pages for the request and response data exposed by each service.
 
