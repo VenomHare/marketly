@@ -54,7 +54,7 @@ const dispatch = async (method: string, path: string, body?: unknown, token?: st
   for (const layer of stack) {
     if (!layer.route?.methods[method.toLowerCase()]) continue;
     const names: string[] = [];
-    const pattern = layer.route.path.split("/").map((part) => {
+    const pattern = layer.route.path.split("/").map((part: string) => {
       if (part.startsWith(":")) { names.push(part.slice(1)); return "([^/]+)"; }
       return part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     }).join("/");
@@ -89,7 +89,7 @@ describe("Razorpay payment and refund security", () => {
     process.env.RAZORPAY_KEY_ID = "rzp_test_public";
     process.env.RAZORPAY_KEY_SECRET = "test-key-secret";
     process.env.RAZORPAY_WEBHOOK_SECRET = "test-webhook-secret";
-    vi.stubGlobal("fetch", (async (input: RequestInfo | URL, init?: RequestInit) => {
+    vi.stubGlobal("fetch", (async (input: string | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.startsWith("https://api.razorpay.com/")) {
         return mocked.providerFetch(url, init);
