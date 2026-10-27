@@ -18,7 +18,7 @@ docker compose --env-file backend/.env.example up -d
 
 The example file contains development-only credentials and connection URLs. Copy it to `backend/.env` for the backend application. Elasticsearch may require `vm.max_map_count=262144` on Linux hosts.
 
-To publish this documentation, set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**. The workflow in `.github/workflows/pages.yml` builds the Jekyll site from this `docs/` directory and deploys it to `https://venomhare.github.io/marketly/`. To preview it locally, run `bundle install` and `bundle exec jekyll serve` from `docs/`.
+To publish this documentation, set **Settings → Pages → Build and deployment → Source** to **Deploy from a branch**, select the `main` branch and `/docs` folder, and save. GitHub Pages builds the Jekyll site using the Just the Docs remote theme and publishes it at `https://venomhare.github.io/marketly/`.
 
 The backend uses MongoDB as its source of truth, Redis for selected locks and upload sessions, and authenticated Elasticsearch for product search. Elasticsearch product documents are updated after product and review writes. Failed index operations retry in process memory; existing records need a future reindex operation, and retry state does not survive an API restart. See [search indexing](api/search.html#indexing-and-synchronization) for current coverage and limits. Razorpay credentials are provided as blank placeholders in the example environment file.
 

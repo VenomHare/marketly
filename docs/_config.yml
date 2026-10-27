@@ -1,6 +1,6 @@
 title: Marketly Docs
 description: Backend API reference and architecture notes for Marketly.
-theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs
 
 url: https://venomhare.github.io
 baseurl: /marketly
@@ -21,4 +21,5 @@ gh_edit_branch: main
 gh_edit_source: docs
 
 plugins:
+  - jekyll-remote-theme
   - jekyll-seo-tag
