@@ -317,6 +317,12 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
         };
       });
       const createdItems = await OrderItem.create(orderItems, { session });
+      const vendorIds = [...new Set(orderItems.map((item) => item.vendor_id))];
+      await VendorOrder.create(vendorIds.map((vendorId) => ({
+        order_id: order.id,
+        vendor_id: vendorId,
+        status: "placed" as const,
+      })), { session });
       await InventoryMovement.create(createdItems.map((item) => ({
         product_id: item.product_id,
         order_item_id: item.id,

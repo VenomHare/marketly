@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Vendor } from "../models";
+import { User, Vendor } from "../models";
 
 export interface AuthRequest extends Request {
   user?: {
@@ -57,7 +57,19 @@ export const requireAdmin = async (
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin access required" });
   }
-  next();
+  if (!/^[a-f\d]{24}$/i.test(req.user.id)) {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  try {
+    // Do not trust a long-lived JWT role after an account is suspended or demoted.
+    const user = await User.findById(req.user.id).select("role status").lean();
+    if (!user || user.role !== "admin" || user.status !== "active") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    return next();
+  } catch {
+    return res.status(500).json({ message: "Unable to authorize administrator" });
+  }
 };
 
 export const requireVendor = async (

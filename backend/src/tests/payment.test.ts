@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { createHmac } from "node:crypto";
 
 const mocked = vi.hoisted(() => ({
+  userFindById: vi.fn(),
   paymentById: vi.fn(), paymentFindOne: vi.fn(), paymentUpdate: vi.fn(),
   orderFindOne: vi.fn(), orderExists: vi.fn(),
   refundExists: vi.fn(), refundCreate: vi.fn(), refundFindOne: vi.fn(), refundFind: vi.fn(),
@@ -12,6 +13,7 @@ const mocked = vi.hoisted(() => ({
 }));
 
 vi.mock("../models", () => ({
+  User: { findById: mocked.userFindById },
   Payment: { findById: mocked.paymentById, findOne: mocked.paymentFindOne, findOneAndUpdate: mocked.paymentUpdate, updateOne: vi.fn() },
   Order: { findOne: mocked.orderFindOne, exists: mocked.orderExists, updateOne: vi.fn() },
   PaymentRefundRequest: {
@@ -104,6 +106,10 @@ describe("Razorpay payment and refund security", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocked.userFindById.mockImplementation(() => ({
+      select() { return this; },
+      lean: async () => ({ role: "admin", status: "active" }),
+    }));
     mocked.acquireMutex.mockResolvedValue(async () => undefined);
     const payment = {
       id: PAYMENT_ID, _id: new mongoose.Types.ObjectId(PAYMENT_ID), order_id: ORDER_ID,
