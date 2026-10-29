@@ -34,6 +34,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json({ verify: (req, _res, buffer) => { (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer); } }));
+app.use((r, _, n) => {
+  console.log(`${r.method} ${r.path}`);
+  n();
+})
 
 // Mount all routers at /api/v1
 app.use("/api/v1", authRouter);

@@ -1,27 +1,27 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-nav-900: #131921;
-  --color-nav-800: #232F3E;
-  --color-nav-700: #37475A;
-  --color-page: #EAEDED;
+  --color-nav-900: #0B1220;
+  --color-nav-800: #14213D;
+  --color-nav-700: #22365A;
+  --color-page: #F3F6FB;
   --color-surface: #FFFFFF;
-  --color-surface-muted: #F7FAFA;
-  --color-border: #D5D9D9;
-  --color-border-strong: #888C8C;
-  --color-text: #0F1111;
-  --color-text-muted: #565959;
+  --color-surface-muted: #F5F8FE;
+  --color-border: #DCE4F1;
+  --color-border-strong: #A8B6CC;
+  --color-text: #111827;
+  --color-text-muted: #56657A;
   --color-text-on-dark: #FFFFFF;
   --color-text-on-dark-muted: #DDDDDD;
-  --color-link: #007185;
-  --color-link-hover: #C7511F;
-  --color-accent: #FF9900;
-  --color-cta-yellow: #FFD814;
-  --color-cta-yellow-border: #FCD200;
-  --color-cta-yellow-hover: #F7CA00;
-  --color-cta-orange: #FFA41C;
-  --color-cta-orange-border: #FF8F00;
-  --color-cta-orange-hover: #FA8900;
+  --color-link: #245AE8;
+  --color-link-hover: #173FAE;
+  --color-accent: #4F83FF;
+  --color-cta-yellow: #2563EB;
+  --color-cta-yellow-border: #2563EB;
+  --color-cta-yellow-hover: #1D4ED8;
+  --color-cta-orange: #0865CF;
+  --color-cta-orange-border: #0865CF;
+  --color-cta-orange-hover: #0A4EBB;
   --color-btn-neutral: #FFFFFF;
   --color-price: #B12704;
   --color-deal: #CC0C39;
@@ -34,7 +34,7 @@
   --color-danger-bg: #FDECEC;
   --color-info: #0066C0;
   --color-info-bg: #E8F3FC;
-  --color-focus: #007185;
+  --color-focus: #2563EB;
   --color-overlay: rgba(15,17,17,0.5);
   --font-sans: 'Inter Variable', Arial, Helvetica, sans-serif;
 }

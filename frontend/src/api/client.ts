@@ -8,7 +8,7 @@ const client = axios.create({
 })
 
 type RetryConfig = InternalAxiosRequestConfig & { _retried?: boolean }
-type ApiEnvelope<T> = { data: T }
+type RefreshResponse = { token: string; refreshToken: string }
 let refreshRequest: Promise<string> | null = null
 
 client.interceptors.request.use((config) => {
@@ -32,10 +32,10 @@ client.interceptors.response.use((response) => response, async (error: AxiosErro
   if (!refreshToken) return Promise.reject(error)
   config._retried = true
   try {
-    refreshRequest ??= client.post<ApiEnvelope<{ access_token: string; refresh_token: string }>>('/auth/refresh', { refresh_token: refreshToken }).then(({ data }) => {
-      useAuthStorage.getState().setAccessToken(data.data.access_token)
-      localStorage.setItem(refreshTokenKey, data.data.refresh_token)
-      return data.data.access_token
+    refreshRequest ??= client.post<RefreshResponse>('/auth/refresh', { refreshToken }).then(({ data }) => {
+      useAuthStorage.getState().setAccessToken(data.token)
+      localStorage.setItem(refreshTokenKey, data.refreshToken)
+      return data.token
     }).finally(() => { refreshRequest = null })
     const accessToken = await refreshRequest
     config.headers.Authorization = `Bearer ${accessToken}`
