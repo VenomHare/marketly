@@ -1,5 +1,7 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { z } from "zod";
+import { ProductImage } from "../models";
 import { elasticsearchRequest } from "../utils/elasticsearch";
 
 const searchRouter = Router();
@@ -20,6 +22,28 @@ const suggestionsQuerySchema = z.object({
 const trendingQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
 }).strict();
+
+async function attachProductImages<T extends { id: string }>(products: T[]): Promise<Array<T & { images?: Array<{ id: string; object_key: string; alt_text?: string; position: number }> }>> {
+  if (!products.length || mongoose.connection.readyState !== 1) return products;
+  const images = await ProductImage.find({ product_id: { $in: products.map((product) => product.id) } })
+    .sort({ position: 1, _id: 1 })
+    .lean();
+  const imagesByProduct = new Map<string, Array<{ id: string; object_key: string; alt_text?: string; position: number }>>();
+  for (const image of images) {
+    const productImages = imagesByProduct.get(image.product_id) ?? [];
+    productImages.push({
+      id: image._id.toString(),
+      object_key: image.object_key,
+      ...(image.alt_text ? { alt_text: image.alt_text } : {}),
+      position: image.position,
+    });
+    imagesByProduct.set(image.product_id, productImages);
+  }
+  return products.map((product) => {
+    const productImages = imagesByProduct.get(product.id);
+    return productImages?.length ? { ...product, images: productImages } : product;
+  });
+}
 
 searchRouter.get("/search/products", async (req, res) => {
   const validation = querySchema.safeParse(req.query);
@@ -56,7 +80,8 @@ searchRouter.get("/search/products", async (req, res) => {
     if (!Array.isArray(hits) || !result.hits) throw new Error("Malformed Elasticsearch response");
     const total = typeof result.hits.total === "number" ? result.hits.total : result.hits.total?.value;
     if (typeof total !== "number" || !Number.isFinite(total)) throw new Error("Malformed Elasticsearch total");
-    return res.json({ products: hits.map((hit) => ({ id: hit._source?.id || hit._id, ...hit._source })), total, page, limit, totalPages: Math.ceil(total / limit) });
+    const products = hits.map((hit) => ({ ...hit._source, id: String(hit._source?.id || hit._id) }));
+    return res.json({ products: await attachProductImages(products), total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (error) {
     console.error("Product search error:", error);
     return res.status(502).json({ message: "Product search is temporarily unavailable" });
@@ -109,7 +134,8 @@ searchRouter.get("/search/trending", async (req, res) => {
     });
     const hits = result.hits?.hits;
     if (!Array.isArray(hits) || !result.hits) throw new Error("Malformed Elasticsearch response");
-    return res.json({ products: hits.map((hit) => ({ id: hit._source?.id || hit._id, ...hit._source })) });
+    const products = hits.map((hit) => ({ ...hit._source, id: String(hit._source?.id || hit._id) }));
+    return res.json({ products: await attachProductImages(products) });
   } catch (error) {
     console.error("Trending products error:", error);
     return res.status(502).json({ message: "Trending products are temporarily unavailable" });

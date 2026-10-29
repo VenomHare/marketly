@@ -144,6 +144,7 @@ productsRouter.get("/products/:uuid", async (req, res) => {
   try {
     const product = await Product.findOne({ _id: productId, status: "active" }).lean();
     if (!product) return res.status(404).json({ message: "Product not found" });
+    const images = await ProductImage.find({ product_id: productId }).sort({ position: 1, _id: 1 }).lean();
 
     return res.json({
       id: product._id.toString(),
@@ -157,6 +158,12 @@ productsRouter.get("/products/:uuid", async (req, res) => {
       average_rating: product.average_rating,
       review_count: product.review_count,
       status: product.status,
+      images: images.map((image) => ({
+        id: image._id.toString(),
+        object_key: image.object_key,
+        ...(image.alt_text ? { alt_text: image.alt_text } : {}),
+        position: image.position,
+      })),
       created_at: product.created_at,
       updated_at: product.updated_at,
     });
@@ -259,6 +266,16 @@ productsRouter.patch("/products/:uuid/status", authenticate, requireVerifiedVend
   }
 
   try {
+    const ownedProduct = await Product.findOne({ _id: productId, vendor_id: req.vendor!.id, status: { $ne: "archived" } });
+    if (!ownedProduct) return res.status(404).json({ message: "Product not found" });
+
+    if (validation.data.status === "active" && ownedProduct.status !== "active") {
+      const imageCount = await ProductImage.countDocuments({ product_id: productId });
+      if (imageCount < 3) {
+        return res.status(400).json({ message: "At least 3 images are required to publish a product" });
+      }
+    }
+
     const product = await Product.findOneAndUpdate(
       { _id: productId, vendor_id: req.vendor!.id, status: { $ne: "archived" } },
       { status: validation.data.status, updated_at: new Date() },
@@ -399,6 +416,11 @@ productsRouter.delete("/products/:uuid/image/:imageId", authenticate, requireVer
       status: { $ne: "archived" },
     });
     if (!product) return res.status(404).json({ message: "Product not found" });
+
+    const imageCount = await ProductImage.countDocuments({ product_id: productId });
+    if (product.status === "active" && imageCount <= 3) {
+      return res.status(409).json({ message: "Active products must keep at least 3 images" });
+    }
 
     const image = await ProductImage.findOneAndDelete({ _id: imageId, product_id: productId });
     if (!image) return res.status(404).json({ message: "Product image not found" });

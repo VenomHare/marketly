@@ -55,6 +55,7 @@ services:
     environment:
       discovery.type: single-node
       xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
       ELASTIC_PASSWORD: ${ELASTICSEARCH_PASSWORD:-marketly_elastic_dev_password}
       ES_JAVA_OPTS: -Xms1g -Xmx1g
     ports:

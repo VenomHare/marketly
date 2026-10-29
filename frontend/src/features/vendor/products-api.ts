@@ -1,4 +1,5 @@
 import { client } from '../../api/client'
+import type { UploadedProductImage } from '../../components/shared/ImageUploadField'
 
 export type ManagedProduct = {
   id: string
@@ -11,6 +12,7 @@ export type ManagedProduct = {
   average_rating: number
   review_count: number
   status: 'draft' | 'active' | 'archived'
+  images?: UploadedProductImage[]
   created_at: string
   updated_at: string
 }
@@ -44,4 +46,8 @@ export async function updateVendorProductStatus(id: string, status: 'draft' | 'a
 
 export async function archiveVendorProduct(id: string): Promise<void> {
   await client.delete(`/products/${id}`)
+}
+
+export async function removeVendorProductImage(productId: string, imageId: string): Promise<void> {
+  await client.delete(`/products/${productId}/image/${imageId}`)
 }

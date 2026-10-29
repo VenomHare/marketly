@@ -41,7 +41,7 @@ export function elasticsearchRequest(
   body?: unknown,
   acceptedStatuses: number[] = [],
 ): Promise<ElasticsearchResponse> {
-  const base = process.env.ELASTICSEARCH_URL || "https://localhost:9200";
+  const base = process.env.ELASTICSEARCH_URL || "http://localhost:9200";
   const url = new URL(`${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Unsupported Elasticsearch URL protocol");
   const username = process.env.ELASTICSEARCH_USERNAME;
@@ -53,10 +53,6 @@ export function elasticsearchRequest(
     const request = transport(url, {
       method,
       headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) },
-      // Compose uses Elasticsearch's generated self-signed certificate on localhost.
-      ...(url.protocol === "https:" && ["localhost", "127.0.0.1"].includes(url.hostname)
-        ? { rejectUnauthorized: false }
-        : {}),
       timeout: 5000,
     }, (response) => {
       let data = "";
@@ -121,7 +117,24 @@ async function ensureProductsIndex(): Promise<void> {
 
 export async function indexProduct(product: SearchableProduct): Promise<void> {
   await ensureProductsIndex();
-  await elasticsearchRequest("PUT", `products/_doc/${encodeURIComponent(product.id)}`, product, [200, 201]);
+  // Mongoose documents carry MongoDB's `_id` field in addition to the public `id`
+  // virtual. Elasticsearch reserves `_id`, so send only the indexed fields.
+  const document: SearchableProduct = {
+    id: product.id,
+    vendor_id: product.vendor_id,
+    category_id: product.category_id,
+    name: product.name,
+    description: product.description,
+    sku: product.sku,
+    price: product.price,
+    stock: product.stock,
+    average_rating: product.average_rating,
+    review_count: product.review_count,
+    status: product.status,
+    created_at: product.created_at,
+    updated_at: product.updated_at,
+  };
+  await elasticsearchRequest("PUT", `products/_doc/${encodeURIComponent(product.id)}`, document, [200, 201]);
 }
 
 export async function removeProductFromIndex(productId: string): Promise<void> {

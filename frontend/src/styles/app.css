@@ -389,6 +389,7 @@ main { max-width: 1480px; padding-top: 4px; }
 .image-upload-button:focus-within { outline: 2px solid #2F6BFF; outline-offset: 2px; }
 .image-upload-shield { position: absolute; top: 10px; right: 10px; z-index: 1; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; color: white; background: #17804F; box-shadow: 0 2px 7px rgb(0 0 0 / 15%); }
 .image-upload-help { margin: 7px 0 0; color: #78879D; font-size: 10px; line-height: 15px; }
+.image-upload-progress { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: #245AE8; font-size: 10px; line-height: 15px; overflow-wrap: anywhere; }
 .image-upload-error { display: flex; align-items: flex-start; gap: 5px; margin: 7px 0 0; color: #B42318; font-size: 10px; line-height: 15px; }
 .image-upload-remove { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; padding: 2px 0; border: 0; color: #71809A; background: transparent; font-size: 10px; cursor: pointer; }
 .image-upload-remove:hover { color: #B42318; }
@@ -431,6 +432,8 @@ main { max-width: 1480px; padding-top: 4px; }
 .product-status.active { color: #167347; background: #E9F7EF; }
 .product-status.draft { color: #946200; background: #FFF5D9; }
 .product-status.archived { color: #6F7C91; background: #EEF1F5; }
+.product-image-count { color: #A45C18; font-size: 11px; font-variant-numeric: tabular-nums; }
+.product-image-count.complete { color: #17804F; font-weight: 600; }
 .vendor-product-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
 .vendor-product-actions button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 7px; color: #52627A; background: transparent; cursor: pointer; }
 .vendor-product-actions button:hover:not(:disabled) { border-color: #DCE6FA; color: #245AE8; background: #F5F8FF; }
@@ -456,6 +459,19 @@ main { max-width: 1480px; padding-top: 4px; }
 .vendor-product-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .vendor-product-form-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 2px; }
 .vendor-product-form-note { margin: -7px 0 0; color: #71809A; font-size: 10px; text-align: right; }
+.vendor-product-image-manager { display: grid; gap: 11px; margin-top: 2px; padding: 15px; border: 1px solid #E0E7F2; border-radius: 12px; background: #FBFCFF; }
+.vendor-product-image-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.vendor-product-image-heading strong { color: #18243B; font-size: 12px; }
+.vendor-product-image-heading p { margin: 3px 0 0; color: #71809A; font-size: 10px; }
+.vendor-product-image-heading > span { padding: 5px 9px; border-radius: 999px; color: #A45C18; background: #FFF5E8; font-size: 10px; font-weight: 600; }
+.vendor-product-image-heading > span.complete { color: #17804F; background: #E9F7EF; }
+.vendor-product-image-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.vendor-product-image-item { position: relative; aspect-ratio: 1; overflow: hidden; border: 1px solid #DFE7F4; border-radius: 10px; background: white; }
+.vendor-product-image-item img { width: 100%; height: 100%; object-fit: contain; }
+.vendor-product-image-item button { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 50%; color: #52627A; background: rgb(255 255 255 / 94%); box-shadow: 0 2px 8px rgb(0 0 0 / 12%); cursor: pointer; }
+.vendor-product-image-item button:disabled { color: #A9B4C4; cursor: not-allowed; }
+.vendor-product-image-manager .image-upload-dropzone { min-height: 155px; }
+.vendor-product-image-manager .image-upload-field { margin-top: 2px; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .vendor-metric-skeleton { min-height: 150px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; border: 1px solid #DFE7F4; border-radius: 16px; background: white; }
 .vendor-metric-skeleton .skeleton { height: 16px; border-radius: 6px; }

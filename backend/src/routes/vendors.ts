@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { OrderItem, Product, User, Vendor, VendorKyc, VendorOrder, VendorSettlement } from "../models";
+import { OrderItem, Product, ProductImage, User, Vendor, VendorKyc, VendorOrder, VendorSettlement } from "../models";
 import { AuthRequest, authenticate, requireVendor } from "../middleware/auth";
 import {
   vendorApplicationSchema,
@@ -263,7 +263,6 @@ vendorsRouter.get("/vendors/:uuid/products", async (req, res, next) => {
       Product.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
       Product.countDocuments(filter),
     ]);
-
     return res.json({
       products: products.map((product) => ({
         id: product.id,
@@ -300,6 +299,19 @@ vendorsRouter.get("/vendors/me/products", authenticate, requireVendor, async (re
       Product.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
       Product.countDocuments(filter),
     ]);
+    const productIds = products.map((product) => product.id);
+    const images = await ProductImage.find({ product_id: { $in: productIds } }).sort({ position: 1, _id: 1 }).lean();
+    const imagesByProduct = new Map<string, Array<{ id: string; object_key: string; alt_text?: string; position: number }>>();
+    for (const image of images) {
+      const productImages = imagesByProduct.get(image.product_id) ?? [];
+      productImages.push({
+        id: image._id.toString(),
+        object_key: image.object_key,
+        ...(image.alt_text ? { alt_text: image.alt_text } : {}),
+        position: image.position,
+      });
+      imagesByProduct.set(image.product_id, productImages);
+    }
 
     return res.json({
       products: products.map((product) => ({
@@ -313,6 +325,7 @@ vendorsRouter.get("/vendors/me/products", authenticate, requireVendor, async (re
         average_rating: product.average_rating,
         review_count: product.review_count,
         status: product.status,
+        images: imagesByProduct.get(product.id) ?? [],
         created_at: product.created_at,
         updated_at: product.updated_at,
       })),
