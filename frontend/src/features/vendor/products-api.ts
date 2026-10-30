@@ -51,3 +51,7 @@ export async function archiveVendorProduct(id: string): Promise<void> {
 export async function removeVendorProductImage(productId: string, imageId: string): Promise<void> {
   await client.delete(`/products/${productId}/image/${imageId}`)
 }
+
+export async function reorderVendorProductImages(productId: string, imageIds: string[]): Promise<void> {
+  await client.put(`/products/${productId}/images/reorder`, { image_ids: imageIds })
+}

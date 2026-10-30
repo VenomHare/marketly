@@ -67,15 +67,15 @@ export function SearchPage() {
         const next = new URLSearchParams(searchParams)
         const min = String(form.get('min') || '')
         const max = String(form.get('max') || '')
-        if (min) next.set('minPrice', min)
+        if (min) next.set('minPrice', String(Math.round(Number(min) * 100)))
         else next.delete('minPrice')
-        if (max) next.set('maxPrice', max)
+        if (max) next.set('maxPrice', String(Math.round(Number(max) * 100)))
         else next.delete('maxPrice')
         next.delete('page')
         setSearchParams(next)
       }}>
-        <label>Minimum (₹)<input name="min" inputMode="numeric" defaultValue={searchParams.get('minPrice') || ''} /></label>
-        <label>Maximum (₹)<input name="max" inputMode="numeric" defaultValue={searchParams.get('maxPrice') || ''} /></label>
+        <label>Minimum (₹)<input name="min" type="number" min="0" step="0.01" defaultValue={searchParams.get('minPrice') ? (Number(searchParams.get('minPrice')) / 100).toFixed(2) : ''} /></label>
+        <label>Maximum (₹)<input name="max" type="number" min="0" step="0.01" defaultValue={searchParams.get('maxPrice') ? (Number(searchParams.get('maxPrice')) / 100).toFixed(2) : ''} /></label>
         <button className="button neutral small">Apply</button>
       </form>
       {(searchParams.has('category') || searchParams.has('minPrice') || searchParams.has('maxPrice')) && <button className="text-link filter-clear" onClick={() => setSearchParams(q ? { q } : {})}>Clear filters</button>}

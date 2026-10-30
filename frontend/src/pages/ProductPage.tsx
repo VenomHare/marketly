@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, LockKeyhole, Star } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { useAuth } from '../features/auth/hooks/useAuthLifecycle'
 import { client } from '../api/client'
 import { getGuestSessionId } from '../utils/guest-session'
 import { formatMoney } from '../utils/format-money'
+import { getImageUrl } from '../utils/image-url'
 import { useProduct, useProductReviews, useRelatedProducts, useSeller } from '../features/catalog/hooks'
 import type { Product } from '../features/catalog/types'
 import { useDocumentTitle } from '../utils/use-document-title'
@@ -21,6 +22,9 @@ export function ProductPage() {
   const product = useProduct(productId)
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
+  const [selectedImage, setSelectedImage] = useState(0)
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  useEffect(() => setSelectedImage(0), [productId])
   const seller = useSeller(product.data?.vendor_id || '')
   const reviews = useProductReviews(productId, product.isSuccess)
   const related = useRelatedProducts(productId, product.isSuccess)
@@ -55,7 +59,9 @@ export function ProductPage() {
   return <>
     <div className="breadcrumbs"><Link to="/">Home</Link><span>›</span><span>{item.name}</span></div>
     <div className="product-detail">
-      <div className="gallery"><ProductImage product={item} className="detail-image" /></div>
+      <div className="gallery">
+        {item.images?.length ? <ProductGallery images={item.images} productName={item.name} selected={selectedImage} onSelect={setSelectedImage} /> : <ProductImage product={item} className="detail-image" />}
+      </div>
       <section className="product-info">
         <h1>{item.name}</h1>
         {item.vendor_id && <Link className="text-link" to={`/seller/${item.vendor_id}`}>Visit the {sellerName || 'seller'} store</Link>}
@@ -65,7 +71,8 @@ export function ProductPage() {
         <StockLabel stock={item.stock} />
         <hr />
         <h2>About this item</h2>
-        <p className="description">{item.description}</p>
+        <p className={`description ${descriptionExpanded ? 'expanded' : ''}`}>{item.description}</p>
+        <button className="description-toggle" type="button" aria-expanded={descriptionExpanded} onClick={() => setDescriptionExpanded(expanded => !expanded)}>{descriptionExpanded ? 'Read Less' : 'Read More'}</button>
       </section>
       <aside className="buy-box">
         {unavailable ? <p className="unavailable">Currently unavailable</p> : <p className="price large">{formatMoney(item.price)}</p>}
@@ -118,6 +125,23 @@ function StockLabel({ stock }: { stock?: number }) {
 
 function RelatedCard({ product }: { product: Product }) {
   return <article className="product-card"><Link className="product-link" to={`/product/${product.id}`}><ProductImage product={product} className="product-image" /><h3>{product.name}</h3></Link><p className="price">{formatMoney(product.price)}</p></article>
+}
+
+function ProductGallery({ images, productName, selected, onSelect }: { images: NonNullable<Product['images']>; productName: string; selected: number; onSelect: (index: number) => void }) {
+  const current = images[selected] ?? images[0]
+  if (!current) return null
+  const step = (offset: number) => onSelect((selected + offset + images.length) % images.length)
+  return <div className="product-gallery">
+    <div className="product-gallery-main">
+      <img className="detail-image" src={getImageUrl(current.object_key)} alt={current.alt_text || productName} />
+      {images.length > 1 && <>
+        <button className="product-gallery-arrow previous" aria-label="Previous image" onClick={() => step(-1)}>‹</button>
+        <button className="product-gallery-arrow next" aria-label="Next image" onClick={() => step(1)}>›</button>
+        <span className="product-gallery-count">{selected + 1} / {images.length}</span>
+      </>}
+    </div>
+    {images.length > 1 && <div className="product-gallery-thumbnails" aria-label="Product images">{images.map((image, index) => <button type="button" key={`${image.object_key}-${index}`} aria-label={`Show image ${index + 1}`} aria-pressed={index === selected} className={index === selected ? 'selected' : ''} onClick={() => onSelect(index)}><img src={getImageUrl(image.object_key)} alt="" /></button>)}</div>}
+  </div>
 }
 
 function ProductPageLoading() {

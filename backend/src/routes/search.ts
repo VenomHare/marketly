@@ -69,7 +69,7 @@ searchRouter.get("/search/products", async (req, res) => {
     size: limit,
     query: { bool: {
       filter: filters,
-      ...(q ? { must: [{ multi_match: { query: q, fields: ["name^3", "description", "sku"], type: "best_fields", operator: "and" } }] } : {}),
+      ...(q ? { must: [{ multi_match: { query: q, fields: ["name^3", "description", "sku"], type: "bool_prefix", operator: "and" } }] } : {}),
     } },
     sort,
   };

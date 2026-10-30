@@ -166,6 +166,11 @@ function scheduleIndexRetry(operation: PendingIndexOperation): void {
 }
 
 export async function syncProductIndex(product: SearchableProduct): Promise<void> {
+  if (product.status !== "active") {
+    await syncProductDeletion(product.id);
+    return;
+  }
+
   try {
     await indexProduct(product);
     const pending = pendingIndexOperations.get(product.id);
