@@ -11,7 +11,7 @@ Base prefix: `/api/v1`.
 
 ## `POST /checkout/preview`
 
-Public guest-cart preview. Requires a JSON object with exactly the following fields:
+Guest-cart preview is public. To preview a customer-owned cart, include that customer's bearer token. Supply exactly one of `session_id` or `cart_id`, with optional `coupon_code`:
 
 ```json
 {
@@ -20,7 +20,16 @@ Public guest-cart preview. Requires a JSON object with exactly the following fie
 }
 ```
 
-`coupon_code` is optional. `session_id` must be 32–200 characters with no surrounding whitespace. When present, `coupon_code` is trimmed and must contain 1–100 characters. Invalid bodies or unknown fields return `400 {"message":"Invalid request body"}`. Missing, expired, or customer-owned carts return `404 {"message":"Cart not found"}`.
+For an authenticated customer cart, use:
+
+```json
+{
+  "cart_id": "507f1f77bcf86cd799439011",
+  "coupon_code": "SAVE10"
+}
+```
+
+`coupon_code` is optional. `session_id` must be 32–200 characters with no surrounding whitespace. `cart_id` must be a 24-character MongoDB ID and must belong to the authenticated customer. Supplying both cart identifiers or neither is invalid. When present, `coupon_code` is trimmed and must contain 1–100 characters. Invalid bodies or unknown fields return `400 {"message":"Invalid request body"}`. Missing or expired carts return `404 {"message":"Cart not found"}`. Using `cart_id` without customer authentication returns `401`; non-customer roles receive `403`.
 
 The response includes `cart_id`, `valid`, `items`, `subtotal_paise`, `discount_paise`, `shipping_paise`, `total_paise`, and `coupon`. Each item reports current product name, SKU, unit price, quantity, line total, stock, availability, and a reason when unavailable. Missing or inactive products, invalid quantities or prices, insufficient stock, invalid line totals, and empty carts make the preview invalid. The preview does not mutate the cart or inventory.
 

@@ -10,9 +10,10 @@ const ordersRouter = Router();
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const checkoutPreviewSchema = z.object({
-  session_id: z.string().min(32).max(200).refine((value) => value.trim() === value),
+  cart_id: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  session_id: z.string().min(32).max(200).refine((value) => value.trim() === value).optional(),
   coupon_code: z.string().trim().min(1).max(100).optional(),
-}).strict();
+}).strict().refine((body) => Boolean(body.cart_id) !== Boolean(body.session_id));
 
 const checkoutSchema = z.object({
   cart_id: z.string().regex(/^[a-f\d]{24}$/i).optional(),
@@ -31,16 +32,19 @@ const returnRequestSchema = z.object({
   reason: z.string().trim().min(1).max(1000),
 }).strict();
 
-ordersRouter.post("/checkout/preview", async (req, res) => {
+ordersRouter.post("/checkout/preview", (req, res, next) => {
+  if (!req.headers.authorization) return next();
+  return authenticate(req as AuthRequest, res, next);
+}, async (req: AuthRequest, res) => {
   const validation = checkoutPreviewSchema.safeParse(req.body);
   if (!validation.success) return res.status(400).json({ message: "Invalid request body" });
 
   try {
-    const { session_id: sessionId, coupon_code: couponCode } = validation.data;
+    const { cart_id: cartId, session_id: sessionId, coupon_code: couponCode } = validation.data;
+  if (cartId && req.user?.role !== "customer") return res.status(req.user ? 403 : 401).json({ message: "Customer access required" });
     const now = new Date();
     const cart = await Cart.findOne({
-      session_id: sessionId,
-      user_id: { $exists: false },
+      ...(cartId ? { _id: cartId, user_id: req.user?.id } : { session_id: sessionId, user_id: { $exists: false } }),
       $or: [{ expires_at: { $exists: false } }, { expires_at: null }, { expires_at: { $gt: now } }],
     });
     if (!cart) return res.status(404).json({ message: "Cart not found" });

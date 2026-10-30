@@ -18,7 +18,7 @@ export function ProductPage() {
   const { productId = '' } = useParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const product = useProduct(productId)
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
@@ -31,17 +31,24 @@ export function ProductPage() {
   useDocumentTitle(product.data?.name || 'Product')
 
   const addToCart = useMutation({
-    mutationFn: async () => client.post('/cart/items', {
-      product_id: productId,
-      quantity,
-      session_id: getGuestSessionId(),
-    }),
+    mutationFn: async () => user?.role === 'customer'
+      ? client.post('/cart/mine/items', { product_id: productId, quantity })
+      : client.post('/cart/items', { product_id: productId, quantity, session_id: getGuestSessionId() }),
     onSuccess: () => {
       setAdded(true)
       void queryClient.invalidateQueries({ queryKey: ['cart'] })
       toast.success('Added to your cart.')
     },
-    onError: error => toast.error(error instanceof Error ? error.message : 'Unable to add this item to your cart.'),
+    onError: error => {
+      const response = typeof error === 'object' && error !== null && 'response' in error ? error.response : undefined
+      const data = typeof response === 'object' && response !== null && 'data' in response ? response.data : undefined
+      const message = typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string' ? data.message : ''
+      const available = typeof data === 'object' && data !== null && 'available_quantity' in data && typeof data.available_quantity === 'number' ? data.available_quantity : undefined
+      if (message === 'Requested quantity exceeds available stock') {
+        toast.error(available === 0 ? 'Your cart already has the remaining stock for this product.' : `Only ${available ?? product.data?.stock ?? 0} more available at this time.`)
+      } else if (message === 'Product is not available') toast.error('This product is no longer available.')
+      else toast.error(message || 'Unable to add this item to your cart. Please try again.')
+    },
   })
 
   if (product.isPending) return <ProductPageLoading />

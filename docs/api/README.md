@@ -20,7 +20,7 @@ The server mounts all routers at `/api/v1`. Choose a router page below; each pag
 | Products | 13 | [products](products.html) |
 | Categories | 3 | [categories](categories.html) |
 | Uploads | 3 | [uploads](uploads.html) |
-| Cart | 7 | [cart](cart.html) |
+| Cart | 11 | [cart](cart.html) |
 | Addresses | 5 | [addresses](addresses.html) |
 | Coupons | 4 | [coupons](coupons.html) |
 | Orders | 7 | [orders](orders.html) |

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { LoaderCircle } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -8,14 +8,20 @@ import { PasswordField } from './PasswordField'
 import { getAuthErrorMessage, getPostAuthDestination, submitAuthRequest } from './helpers'
 import { loginSchema, type LoginFields } from './schemas'
 import { useDocumentTitle } from '../../utils/use-document-title'
+import { useAuth } from './hooks/useAuthLifecycle'
 
 export function LoginPage() {
   useDocumentTitle('Sign in')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const next = searchParams.get('next')
   const [serverError, setServerError] = useState('')
   const form = useForm<LoginFields>({ resolver: zodResolver(loginSchema), mode: 'onBlur', shouldFocusError: true })
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) navigate(getPostAuthDestination(next, user), { replace: true })
+  }, [isAuthenticated, isLoading, navigate, next, user])
 
   const submit = form.handleSubmit(async fields => {
     setServerError('')

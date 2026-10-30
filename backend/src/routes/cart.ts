@@ -49,6 +49,77 @@ cartRouter.get("/cart", async (req, res) => {
   }
 });
 
+cartRouter.get("/cart/mine", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  try {
+    const cart = await Cart.findOne({ user_id: req.user.id, $or: [{ expires_at: { $exists: false } }, { expires_at: null }, { expires_at: { $gt: new Date() } }] });
+    if (!cart) return res.status(200).json({ cart: null, items: [] });
+    const items = await CartItem.find({ cart_id: cart.id }).sort({ added_at: 1 });
+    return res.status(200).json({ cart: { id: cart.id, user_id: cart.user_id, updated_at: cart.updated_at }, items: items.map(item => ({ id: item.id, cart_id: item.cart_id, product_id: item.product_id, quantity: item.quantity, added_at: item.added_at })) });
+  } catch {
+    return res.status(500).json({ message: "Failed to retrieve cart" });
+  }
+});
+
+cartRouter.post("/cart/mine/items", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  const { product_id: productId, quantity } = req.body ?? {};
+  if (Object.keys(req.body ?? {}).some(key => !["product_id", "quantity"].includes(key)) || typeof productId !== "string" || !mongoose.isValidObjectId(productId) || !Number.isSafeInteger(quantity) || quantity < 1) {
+    return res.status(400).json({ message: "Invalid cart item" });
+  }
+  try {
+    const product = await Product.findById(productId);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (product.status !== "active") return res.status(409).json({ message: "Product is not available" });
+    const now = new Date();
+    let cart = await Cart.findOne({ user_id: req.user.id, $or: [{ expires_at: { $exists: false } }, { expires_at: null }, { expires_at: { $gt: now } }] });
+    if (!cart) cart = await Cart.create({ user_id: req.user.id });
+    const item = await CartItem.findOne({ cart_id: cart.id, product_id: productId });
+    const nextQuantity = (item?.quantity ?? 0) + quantity;
+    if (nextQuantity > product.stock) return res.status(409).json({ message: "Requested quantity exceeds available stock", available_quantity: Math.max(0, product.stock - (item?.quantity ?? 0)), cart_quantity: item?.quantity ?? 0 });
+    const savedItem = item
+      ? await CartItem.findByIdAndUpdate(item.id, { quantity: nextQuantity }, { new: true })
+      : await CartItem.create({ cart_id: cart.id, product_id: productId, quantity });
+    if (!savedItem) return res.status(500).json({ message: "Failed to update cart item" });
+    return res.status(item ? 200 : 201).json({ cart_id: cart.id, item: { id: savedItem.id, cart_id: savedItem.cart_id, product_id: savedItem.product_id, quantity: savedItem.quantity, added_at: savedItem.added_at } });
+  } catch {
+    return res.status(500).json({ message: "Failed to add item to cart" });
+  }
+});
+
+cartRouter.patch("/cart/mine/items/:itemId", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  const { itemId } = req.params;
+  const quantity = req.body?.quantity;
+  if (!mongoose.isValidObjectId(itemId) || !Number.isSafeInteger(quantity) || quantity < 1) return res.status(400).json({ message: "Invalid cart item update" });
+  try {
+    const cart = await Cart.findOne({ user_id: req.user.id });
+    const item = cart ? await CartItem.findOne({ _id: itemId, cart_id: cart.id }) : null;
+    const product = item ? await Product.findById(item.product_id) : null;
+    if (!item || !product) return res.status(404).json({ message: "Cart item not found" });
+    if (product.status !== "active" || quantity > product.stock) return res.status(409).json({ message: "Requested quantity exceeds available stock" });
+    item.quantity = quantity;
+    await item.save();
+    return res.status(200).json({ item: { id: item.id, cart_id: item.cart_id, product_id: item.product_id, quantity: item.quantity, added_at: item.added_at } });
+  } catch {
+    return res.status(500).json({ message: "Failed to update cart item" });
+  }
+});
+
+cartRouter.delete("/cart/mine/items/:itemId", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  const { itemId } = req.params;
+  if (!mongoose.isValidObjectId(itemId)) return res.status(400).json({ message: "itemId must be a valid ID" });
+  try {
+    const cart = await Cart.findOne({ user_id: req.user.id });
+    if (!cart) return res.status(404).json({ message: "Cart item not found" });
+    const deleted = await CartItem.deleteOne({ _id: itemId, cart_id: cart.id });
+    return deleted.deletedCount ? res.status(204).send() : res.status(404).json({ message: "Cart item not found" });
+  } catch {
+    return res.status(500).json({ message: "Failed to remove cart item" });
+  }
+});
+
 cartRouter.post("/cart/items", async (req, res) => {
   const body = req.body;
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -82,7 +153,7 @@ cartRouter.post("/cart/items", async (req, res) => {
     const item = cart ? await CartItem.findOne({ cart_id: cart.id, product_id: product.id }) : null;
     const nextQuantity = (item?.quantity ?? 0) + quantity;
     if (nextQuantity > product.stock) {
-      return res.status(409).json({ message: "Requested quantity exceeds available stock" });
+      return res.status(409).json({ message: "Requested quantity exceeds available stock", available_quantity: Math.max(0, product.stock - (item?.quantity ?? 0)), cart_quantity: item?.quantity ?? 0 });
     }
     if (!cart) cart = await Cart.create({ session_id: sessionId });
 

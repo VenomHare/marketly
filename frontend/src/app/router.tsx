@@ -18,6 +18,7 @@ const router = createBrowserRouter([
       { path: 'product/:productId', lazy: () => import('../pages/ProductPage') },
       { path: 'seller/:vendorId', lazy: () => import('../pages/SellerPage') },
       { path: 'cart', lazy: () => import('../features/cart/CartPage') },
+      { path: 'checkout', lazy: () => import('../features/checkout/CheckoutPage') },
       { path: 'vendor/apply', lazy: () => import('../features/vendor/ApplyVendorPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/dashboard', lazy: () => import('../features/vendor/VendorDashboardPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/products', lazy: () => import('../features/vendor/VendorProductsPage'), hydrateFallbackElement: <VendorPageLoading /> },
