@@ -102,6 +102,7 @@ export function useSignOut(): () => Promise<void> {
     await clearAuthSession()
     queryClient.removeQueries({ queryKey: ['auth', 'me'] })
     queryClient.removeQueries({ queryKey: ['vendor'] })
+    queryClient.removeQueries({ queryKey: ['admin'] })
     const next = `${location.pathname}${location.search}`
     navigate(`/login?next=${encodeURIComponent(next)}`, { replace: true })
   }

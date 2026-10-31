@@ -30,6 +30,14 @@ const router = createBrowserRouter([
     ],
   },
   {
+    path: 'admin',
+    errorElement: <RouteErrorPage />,
+    children: [
+      { index: true, lazy: () => import('../features/admin/AdminDashboardPage') },
+      { path: ':section', lazy: () => import('../features/admin/AdminDashboardPage') },
+    ],
+  },
+  {
     element: <MinimalLayout />,
     errorElement: <RouteErrorPage />,
     children: [

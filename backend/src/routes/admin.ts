@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import {
   AdminAuditLog, Category, Coupon, CouponRedemption, Order, OrderItem, Payment,
@@ -9,6 +10,7 @@ import { AuthRequest, authenticate, requireAdmin } from "../middleware/auth";
 import { updateUserStatusSchema } from "../validators/auth";
 import { vendorKycDecisionSchema } from "../validators/vendors";
 import { elasticsearchRequest, indexProduct } from "../utils/elasticsearch";
+import { createPresignedDownloadUrl } from "../utils/objectStorage";
 
 const adminRouter = Router();
 // Protect only this router's admin namespace; the router is mounted at /api/v1,
@@ -55,6 +57,7 @@ const couponUpdateSchema = z.object({
 const orderStatusSchema = z.object({ status: z.enum(["pending", "placed", "cancelled", "completed"]) }).strict();
 const moderationSchema = z.object({ status: z.enum(["approved", "rejected", "hidden"]), reason: z.string().trim().max(1000).optional() }).strict();
 const vendorStatusSchema = z.object({ status: z.enum(["active", "suspended"] ) }).strict();
+const createAdminSchema = z.object({ name: z.string().trim().min(2).max(100), email: z.email().trim().toLowerCase().max(254), password: z.string().min(12).max(128) }).strict();
 const dateRangeSchema = z.object({ from: z.iso.datetime().optional(), to: z.iso.datetime().optional() }).strict().refine((v) => !v.from || !v.to || new Date(v.from) <= new Date(v.to));
 const validId = (value: unknown): value is string => typeof value === "string" && idSchema.safeParse(value).success;
 const safeUser = (user: any) => ({ id: user._id?.toString() ?? user.id, name: user.name, email: user.email, role: user.role, status: user.status, created_at: user.created_at, updated_at: user.updated_at });
@@ -65,9 +68,26 @@ async function audit(req: AuthRequest, action: string, entity_type: string, enti
   await AdminAuditLog.create({ admin_user_id: req.user!.id, action, entity_type, entity_id });
 }
 
-adminRouter.get("/admin/users", async (_req, res) => {
-  try { const users = await User.find().sort({ created_at: -1, _id: -1 }).lean(); return res.json(users.map(safeUser)); }
+adminRouter.get("/admin/users", async (req, res) => {
+  const q = z.object({ role: z.enum(["customer", "vendor", "admin"]).optional() }).strict().safeParse(req.query);
+  if (!q.success) return res.status(400).json({ message: "Invalid parameters" });
+  try { const users = await User.find(q.data.role ? { role: q.data.role } : {}).sort({ created_at: -1, _id: -1 }).lean(); return res.json(users.map(safeUser)); }
   catch (e) { return fail(res, "fetch users", e); }
+});
+// Admin accounts can only be provisioned by an active administrator. Public
+// registration remains hard-coded to the customer role.
+adminRouter.post("/admin/users/admin", async (req: AuthRequest, res) => {
+  const v = createAdminSchema.safeParse(req.body);
+  if (!v.success) return res.status(400).json({ message: "Invalid parameters" });
+  try {
+    if (await User.exists({ email: v.data.email })) return res.status(409).json({ message: "Email already registered" });
+    const user = await User.create({ name: v.data.name, email: v.data.email, password_hash: await bcrypt.hash(v.data.password, 12), role: "admin", status: "active" });
+    await audit(req, "admin.create", "user", user.id);
+    return res.status(201).json(safeUser(user));
+  } catch (e: any) {
+    if (e?.code === 11000) return res.status(409).json({ message: "Email already registered" });
+    return fail(res, "create administrator", e);
+  }
 });
 adminRouter.get("/admin/users/:uuid", async (req, res) => {
   if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid user id" });
@@ -102,6 +122,18 @@ adminRouter.get("/admin/vendors/:uuid/kyc/documents", async (req, res) => {
   if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid vendor id" });
   try { const kyc = await VendorKyc.findOne({ vendor_id: req.params.uuid }).select("address_proof_key identity_proof_key status").lean(); if (!kyc) return res.status(404).json({ message: "KYC submission not found" }); return res.json({ address_proof_key: kyc.address_proof_key, identity_proof_key: kyc.identity_proof_key, status: kyc.status }); }
   catch (e) { return fail(res, "fetch KYC documents", e); }
+});
+adminRouter.get("/admin/vendors/:uuid/kyc/documents/:document/access", async (req, res) => {
+  if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid vendor id" });
+  const document = req.params.document === "address" ? "address_proof_key" : req.params.document === "identity" ? "identity_proof_key" : null;
+  if (!document) return res.status(400).json({ message: "Invalid document type" });
+  try {
+    const kyc = await VendorKyc.findOne({ vendor_id: req.params.uuid }).select(`vendor_id ${document}`).lean();
+    if (!kyc) return res.status(404).json({ message: "KYC submission not found" });
+    const key = kyc[document];
+    if (!key || !key.startsWith(`kyc/${req.params.uuid}/`)) return res.status(404).json({ message: "KYC document not found" });
+    return res.json({ url: await createPresignedDownloadUrl(key, 300), expires_in_seconds: 300 });
+  } catch (e) { return fail(res, "create KYC document access link", e); }
 });
 adminRouter.patch("/admin/vendors/:uuid/verify", async (req: AuthRequest, res) => {
   if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid vendor id" });
@@ -178,6 +210,15 @@ adminRouter.get("/admin/orders", async (req, res) => {
   const q = pageSchema.extend({ status: z.enum(["pending", "placed", "cancelled", "completed"]).optional(), payment_status: z.enum(["pending", "paid", "failed", "partially_refunded", "refunded"]).optional() }).strict().safeParse(req.query); if (!q.success) return res.status(400).json({ message: "Invalid parameters" });
   try { const filter = { ...(q.data.status ? { status: q.data.status } : {}), ...(q.data.payment_status ? { payment_status: q.data.payment_status } : {}) }; const [items, total] = await Promise.all([Order.find(filter).sort({ created_at: -1, _id: -1 }).skip((q.data.page - 1) * q.data.limit).limit(q.data.limit).lean(), Order.countDocuments(filter)]); return res.json({ orders: items.map((o) => ({ id: o._id.toString(), user_id: o.user_id, subtotal_paise: o.subtotal_paise, discount_paise: o.discount_paise, shipping_paise: o.shipping_paise, total_paise: o.total_paise, payment_status: o.payment_status, status: o.status, created_at: o.created_at })), pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } }); }
   catch (e) { return fail(res, "fetch orders", e); }
+});
+adminRouter.get("/admin/products", async (req, res) => {
+  const q = pageSchema.extend({ status: z.enum(["draft", "active", "archived"]).optional() }).strict().safeParse(req.query);
+  if (!q.success) return res.status(400).json({ message: "Invalid parameters" });
+  try {
+    const filter = q.data.status ? { status: q.data.status } : {};
+    const [items, total] = await Promise.all([Product.find(filter).sort({ created_at: -1, _id: -1 }).skip((q.data.page - 1) * q.data.limit).limit(q.data.limit).lean(), Product.countDocuments(filter)]);
+    return res.json({ products: items.map(p => ({ id: p._id.toString(), vendor_id: p.vendor_id, category_id: p.category_id, name: p.name, sku: p.sku, price: p.price, stock: p.stock, status: p.status, created_at: p.created_at })), pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } });
+  } catch (e) { return fail(res, "fetch products", e); }
 });
 adminRouter.patch("/admin/orders/:uuid/status", async (req: AuthRequest, res) => {
   if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid order id" }); const v = orderStatusSchema.safeParse(req.body); if (!v.success) return res.status(400).json({ message: "Invalid parameters" });

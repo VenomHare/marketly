@@ -1,4 +1,4 @@
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client, type PutObjectCommandInput } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client, type PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export type ObjectStorageBody = NonNullable<PutObjectCommandInput["Body"]>;
@@ -118,6 +118,17 @@ export async function createPresignedUploadUrl({
     new PutObjectCommand({ Bucket: bucket, Key: normalizedKey, ContentType: contentType }),
     { expiresIn }
   );
+}
+
+export async function createPresignedDownloadUrl(key: string, expiresIn = 300): Promise<string> {
+  const normalizedKey = key.trim();
+  if (!normalizedKey || normalizedKey.startsWith("/") || normalizedKey.split("/").some((segment) => !segment || segment === "." || segment === "..") || Buffer.byteLength(normalizedKey, "utf8") > 1024) {
+    throw new Error("Invalid object storage key");
+  }
+  const bucket = process.env.OBJECT_STORAGE_BUCKET;
+  if (!bucket) throw new Error("OBJECT_STORAGE_BUCKET must be configured");
+  if (!Number.isInteger(expiresIn) || expiresIn < 1 || expiresIn > 3600) throw new Error("Download URL expiry must be between 1 and 3600 seconds");
+  return getSignedUrl(getStorageClient(), new GetObjectCommand({ Bucket: bucket, Key: normalizedKey }), { expiresIn });
 }
 
 export async function getUploadedObjectInfo(key: string): Promise<StoredObjectInfo> {
