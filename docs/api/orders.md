@@ -52,7 +52,7 @@ Requires a customer bearer token. Returns only the authenticated customer's orde
 | `page` | integer | `1` | At least `1`; page offset must be a safe integer |
 | `limit` | integer | `20` | `1` through `100` |
 
-Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response contains `orders` and `pagination` (`page`, `limit`, `total`, `total_pages`); an empty history has `total_pages: 0`. Other roles receive `403 {"message":"Customer access required"}`.
+Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response contains `orders` and `pagination` (`page`, `limit`, `total`, `total_pages`); each order includes `fulfillment_status`, derived from vendor fulfillment when it has advanced beyond the parent order state. An empty history has `total_pages: 0`. Other roles receive `403 {"message":"Customer access required"}`.
 
 ## `GET /orders/:uuid`
 
@@ -64,13 +64,17 @@ The response contains `order` details with the saved address snapshot and amount
 
 Requires a customer bearer token. No request body or query parameters are accepted. Invalid 24-character hexadecimal IDs return `400 {"message":"Invalid order id"}`; missing and foreign orders both return `404 {"message":"Order not found"}`. Other roles receive `403 {"message":"Customer access required"}`.
 
-Only pending orders without a successful or processing payment can be cancelled. A successful cancellation returns `200` with the order ID and its new `cancelled` status. The handler atomically restores item stock, records cancellation inventory movements, marks created/failed payment records failed, removes coupon redemption usage, and updates the order payment status to failed. Orders already paid, processing, completed, or cancelled return `409`. Concurrent order mutations are serialized; lock contention returns `409` and unavailable Redis locking returns `503`.
+Pending orders without a successful or processing payment can be cancelled. Paid orders can be cancelled while every vendor order is still `placed` or `packed`; this creates a full refund request for admin review. Cancellation restores item stock and records inventory movements. Unpaid orders also have created/failed payment records marked failed, coupon redemption usage removed, and payment status updated to failed. Shipped, processing, completed, or already-cancelled orders return `409`. Concurrent order mutations are serialized; lock contention returns `409` and unavailable Redis locking returns `503`.
 
 ## `POST /orders/:uuid/return`
 
 Requires a customer bearer token. Accepts a JSON object with exactly one field: `reason`, a trimmed string containing 1–1000 characters. Invalid IDs return `400 {"message":"Invalid order id"}`; malformed bodies or query parameters return `400`. Missing and foreign orders both return `404 {"message":"Order not found"}`.
 
 Returns are accepted only for completed orders with paid status. Other order states return `409 {"message":"Order is not eligible for return"}`. Only one return request can be created per order; duplicates or concurrent order mutations return `409`. Success returns `201` with `return_request` (`id`, `order_id`, `reason`, `status`, `created_at`), initially in `requested` status. The request is stored separately and does not change the order state. Unavailable Redis locking returns `503`.
+
+## `POST /orders/:uuid/refund`
+
+Requires customer authentication and accepts the same `{ "reason": "..." }` body as the return endpoint. The order must be paid and either completed or have all vendor orders delivered. It creates a full refund request for admin review; duplicate active requests return `409`. Success returns `201` with `refund_request` (`id`, `order_id`, `reason`, `status`, `amount_paise`, `created_at`). Invalid bodies or IDs, foreign orders, and unavailable locks follow the corresponding order mutation endpoint responses.
 
 ## `GET /orders/:uuid/tracking`
 

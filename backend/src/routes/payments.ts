@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { Order, Payment, PaymentRefundRequest, PaymentWebhookEvent } from "../models";
+import { Cart, CartItem, Order, OrderItem, Payment, PaymentRefundRequest, PaymentWebhookEvent, VendorOrder } from "../models";
 import { AuthRequest, authenticate, requireAdmin } from "../middleware/auth";
 import { acquireRedisMutex, RedisMutexTimeoutError } from "../utils/redisMutex";
 import { createRazorpayOrder, createRazorpayRefund, verifyRazorpayPaymentSignature, verifyRazorpayWebhookSignature } from "../utils/razorpay";
@@ -22,6 +22,17 @@ const paymentView = (payment: { id: string; order_id: string; status: string; am
   created_at: payment.created_at,
   updated_at: payment.updated_at,
 });
+const createVendorOrdersForPaidOrder = async (orderId: string, session: mongoose.ClientSession) => {
+  const items = await OrderItem.find({ order_id: orderId }).select("vendor_id").session(session).lean();
+  const vendorIds = [...new Set(items.map((item) => item.vendor_id))];
+  for (const vendorId of vendorIds) {
+    await VendorOrder.updateOne(
+      { order_id: orderId, vendor_id: vendorId },
+      { $setOnInsert: { order_id: orderId, vendor_id: vendorId, status: "placed" } },
+      { upsert: true, session },
+    );
+  }
+};
 
 paymentsRouter.post("/payments/create", authenticate, async (req: AuthRequest, res) => {
   if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
@@ -125,6 +136,11 @@ paymentsRouter.post("/payments/:uuid/verify", authenticate, async (req: AuthRequ
         if (changed.modifiedCount !== 1) throw new Error("Payment state changed during verification");
         const paid = await Order.updateOne({ _id: order.id, user_id: req.user!.id, payment_status: "pending", status: "pending", total_paise: payment.amount_paise }, { $set: { payment_status: "paid", status: "placed", updated_at: new Date() } }, { session });
         if (paid.modifiedCount !== 1) throw new Error("Order state changed during verification");
+        if (order.cart_id) {
+          await CartItem.deleteMany({ cart_id: order.cart_id }).session(session);
+          await Cart.deleteOne({ _id: order.cart_id, user_id: req.user!.id }).session(session);
+        }
+        await createVendorOrdersForPaidOrder(order.id, session);
       });
     } finally { await session.endSession(); }
     const verifiedPayment = await Payment.findById(payment.id);
@@ -297,6 +313,11 @@ paymentsRouter.post("/webhooks/razorpay", async (req, res) => {
             if (order) {
               payment.status = "success"; payment.provider_payment_id = entity.id; payment.updated_at = new Date(); await payment.save({ session });
               order.payment_status = "paid"; order.status = "placed"; order.updated_at = new Date(); await order.save({ session });
+              if (order.cart_id) {
+                await CartItem.deleteMany({ cart_id: order.cart_id }).session(session);
+                await Cart.deleteOne({ _id: order.cart_id, user_id: order.user_id }).session(session);
+              }
+              await createVendorOrdersForPaidOrder(order.id, session);
             }
           }
         }

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { Order, OrderItem, Product, Review } from "../models";
+import { Order, OrderItem, Product, Review, VendorOrder } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 import { productReviewCreateSchema, productReviewsQuerySchema, reviewUpdateSchema } from "../validators/products";
 import { syncProductIndex } from "../utils/elasticsearch";
@@ -19,6 +19,53 @@ const updateProductReviewSummary = async (productId: string) => {
   if (product) await syncProductIndex(product);
 };
 
+const isReviewableDeliveredOrder = async (orderId: string, vendorId: string, userId: string) => {
+  const order = await Order.findOne({
+    _id: orderId,
+    user_id: userId,
+    payment_status: "paid",
+    status: { $in: ["placed", "completed"] },
+  }).select("_id status").lean();
+  if (!order) return false;
+  if (order.status === "completed") return true;
+  return Boolean(await VendorOrder.exists({ order_id: order._id.toString(), vendor_id: vendorId, status: "delivered" }));
+};
+
+reviewsRouter.get("/products/:uuid/review-eligibility", authenticate, async (req: AuthRequest, res) => {
+  const productId = req.params.uuid;
+  if (typeof productId !== "string" || !/^[a-f\d]{24}$/i.test(productId)) {
+    return res.status(400).json({ message: "Invalid product id" });
+  }
+  if (req.user!.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+
+  try {
+    const product = await Product.findOne({ _id: productId, status: "active" }).select("_id");
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    const paidOrders = await Order.find({
+      user_id: req.user!.id,
+      payment_status: "paid",
+      status: { $in: ["placed", "completed"] },
+    }).select("_id").lean();
+    if (!paidOrders.length) return res.json({ eligible: false, order_item_id: null });
+
+    const purchases = await OrderItem.find({
+      order_id: { $in: paidOrders.map((order) => order._id.toString()) },
+      product_id: productId,
+    }).sort({ _id: -1 }).select("_id order_id vendor_id").lean();
+    for (const purchase of purchases) {
+      const alreadyReviewed = await Review.exists({ order_item_id: purchase._id.toString() });
+      const eligibleOrder = await isReviewableDeliveredOrder(purchase.order_id, purchase.vendor_id, req.user!.id);
+      if (!alreadyReviewed && eligibleOrder) {
+        return res.json({ eligible: true, order_item_id: purchase._id.toString() });
+      }
+    }
+    return res.json({ eligible: false, order_item_id: null });
+  } catch (error) {
+    console.error("Get product review eligibility error:", error);
+    return res.status(500).json({ message: "Failed to check review eligibility" });
+  }
+});
+
 reviewsRouter.post("/products/:uuid/reviews", authenticate, async (req: AuthRequest, res) => {
   const productId = req.params.uuid;
   if (typeof productId !== "string" || !/^[a-f\d]{24}$/i.test(productId)) {
@@ -37,13 +84,9 @@ reviewsRouter.post("/products/:uuid/reviews", authenticate, async (req: AuthRequ
     const { order_item_id, rating, title, comment } = validation.data;
     const orderItem = await OrderItem.findOne({ _id: order_item_id, product_id: productId });
     if (!orderItem) return res.status(403).json({ message: "Purchase is not eligible for review" });
-    const order = await Order.findOne({
-      _id: orderItem.order_id,
-      user_id: req.user!.id,
-      payment_status: "paid",
-      status: "completed",
-    }).select("_id");
-    if (!order) return res.status(403).json({ message: "Purchase is not eligible for review" });
+    if (!await isReviewableDeliveredOrder(orderItem.order_id, orderItem.vendor_id, req.user!.id)) {
+      return res.status(403).json({ message: "Purchase is not eligible for review" });
+    }
     if (await Review.exists({ order_item_id })) {
       return res.status(409).json({ message: "This purchase has already been reviewed" });
     }
@@ -60,6 +103,9 @@ reviewsRouter.post("/products/:uuid/reviews", authenticate, async (req: AuthRequ
       created_at: review.created_at,
     });
   } catch (error) {
+    if ((error as Error & { code?: number }).code === 11000) {
+      return res.status(409).json({ message: "This purchase has already been reviewed" });
+    }
     console.error("Create product review error:", error);
     return res.status(500).json({ message: "Failed to create product review" });
   }

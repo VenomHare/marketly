@@ -16,7 +16,7 @@ type OrderResult = { order: { id: string; status: string; total_paise: number };
 type RazorpayOrder = { payment: { id: string }; razorpay: { key_id?: string; order_id: string; amount: number; currency: string } }
 type RazorpaySuccess = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
 type RazorpayOptions = { key: string; order_id: string; amount: number; currency: string; name: string; description: string; handler: (response: RazorpaySuccess) => void; modal: { ondismiss: () => void }; prefill?: { name?: string; email?: string; contact?: string }; theme: { color: string } }
-type RazorpayInstance = { open: () => void }
+type RazorpayInstance = { open: () => void; on: (event: 'payment.failed', handler: (response: { error?: { description?: string; reason?: string } }) => void) => void }
 declare global { interface Window { Razorpay?: new (options: RazorpayOptions) => RazorpayInstance } }
 
 const emptyAddress = { label: 'Home', first_line: '', second_line: '', postal_code: '', city: '', state: '', country: 'India', addressee_name: '', contact_number: '' }
@@ -35,6 +35,7 @@ export function CheckoutPage() {
   const [order, setOrder] = useState<OrderResult | null>(null)
   const [paymentComplete, setPaymentComplete] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
+  const [paymentFailed, setPaymentFailed] = useState(false)
   const idempotencyKey = useRef(crypto.randomUUID())
 
   const addresses = useQuery({ queryKey: ['addresses'], queryFn: async () => (await client.get<AddressList>('/addresses')).data, enabled: isAuthenticated && user?.role === 'customer' })
@@ -74,22 +75,30 @@ export function CheckoutPage() {
         description: 'Secure order payment',
         prefill: prefillAddress ? { name: prefillAddress.addressee_name, contact: prefillAddress.contact_number } : undefined,
         theme: { color: '#2F6BFF' },
-        modal: { ondismiss: () => { setPaymentPending(false); setCheckoutError('Payment was not completed. You can retry securely below.') } },
+        modal: { ondismiss: () => { setPaymentPending(false); setPaymentFailed(true); setCheckoutError('Payment was not completed. Your cart is saved, and you can retry whenever you’re ready.') } },
         handler: async response => {
           try {
             await client.post(`/payments/${paymentId}/verify`, response)
             setPaymentComplete(true)
+            setPaymentFailed(false)
             setPaymentPending(false)
             await queryClient.invalidateQueries({ queryKey: ['cart'] })
           } catch (error) {
             setCheckoutError(error instanceof Error ? error.message : 'Payment verification failed. Please contact support before retrying.')
+            setPaymentFailed(true)
             setPaymentPending(false)
           }
         },
       })
+      paymentWindow.on('payment.failed', response => {
+        setPaymentFailed(true)
+        setPaymentPending(false)
+        setCheckoutError(response.error?.description || response.error?.reason || 'Payment failed. Your cart is saved, and you can retry securely.')
+      })
       paymentWindow.open()
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'Could not start payment. Please try again.')
+      setPaymentFailed(true)
       setPaymentPending(false)
     }
   }
@@ -101,11 +110,11 @@ export function CheckoutPage() {
     try {
       const { data } = await client.post<OrderResult>('/checkout', { cart_id: cart.data.cart.id, address_id: selectedAddress, idempotency_key: idempotencyKey.current, ...(couponCode ? { coupon_code: couponCode } : {}) })
       setOrder(data)
-      await queryClient.invalidateQueries({ queryKey: ['cart'] })
       const address = addresses.data?.addresses.find(item => item.id === selectedAddress)
       await startPayment(data.payment.id, address)
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'We could not place the order. Please review your details and try again.')
+      setPaymentFailed(true)
       setPaymentPending(false)
     }
   }
@@ -119,8 +128,10 @@ export function CheckoutPage() {
   if (authLoading) return <div className="checkout-page"><div className="state-box">Preparing secure checkout…</div></div>
   if (!isAuthenticated) return <Navigate to="/login?next=%2Fcheckout" replace />
   if (user?.role !== 'customer') return <div className="checkout-page"><ErrorState message="Checkout is available to customer accounts." onRetry={() => window.location.assign('/')} /></div>
-  if (cart.data && !cart.data.items.length) return <Navigate to="/cart" replace />
-  if (paymentComplete && order) return <div className="checkout-page"><section className="checkout-success"><span className="checkout-success-icon"><Check size={28} /></span><span className="checkout-eyebrow">PAYMENT CONFIRMED</span><h1>Thank you for your order</h1><p>Your payment was received and your order is on its way to processing.</p><div><span>Order reference</span><strong>{order.order.id}</strong></div><Link className="button primary" to="/search">Continue shopping</Link><Link className="checkout-secondary-link" to="/">Return to home</Link></section></div>
+  if (paymentPending) return <div className="checkout-page"><section className="checkout-status-page processing"><span className="checkout-processing-spinner" /><span className="checkout-eyebrow">SECURE PAYMENT</span><h1>Processing your payment</h1><p>Complete the payment in Razorpay. Keep this page open while we confirm it.</p>{order && <div><span>Order reference</span><strong>{order.order.id}</strong></div>}</section></div>
+  if (paymentComplete && order) return <div className="checkout-page"><section className="checkout-status-page success"><span className="checkout-success-icon"><Check size={28} /></span><span className="checkout-eyebrow">PAYMENT CONFIRMED</span><h1>Order placed</h1><p>Your payment was received and your order is on its way to processing.</p><div><span>Order reference</span><strong>{order.order.id}</strong></div><Link className="button primary" to="/account/orders">View your orders</Link><Link className="checkout-secondary-link" to="/search">Continue shopping</Link></section></div>
+  if (paymentFailed && order) return <div className="checkout-page"><section className="checkout-status-page failed"><span className="checkout-failed-icon"><X size={25} /></span><span className="checkout-eyebrow">PAYMENT NOT COMPLETED</span><h1>Payment failed</h1><p>{checkoutError || 'Your payment did not go through. The items are still saved in your cart.'}</p><div><span>Order reference</span><strong>{order.order.id}</strong></div><div className="checkout-failed-cart"><strong>{preview.data?.items.length ?? 0} cart items saved</strong><span>{preview.data ? formatMoney(preview.data.total_paise) : formatMoney(order.order.total_paise)}</span></div><button className="button primary" onClick={() => { setPaymentFailed(false); void startPayment(order.payment.id, addresses.data?.addresses.find(item => item.id === selectedAddress)) }}>Retry payment</button><Link className="checkout-secondary-link" to="/cart">Review your cart</Link></section></div>
+  if (cart.data && !cart.data.items.length && !order) return <Navigate to="/cart" replace />
 
   return <div className="checkout-page">
     <Link className="checkout-back" to="/cart"><ChevronLeft size={17} /> Back to cart</Link>

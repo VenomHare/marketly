@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, LockKeyhole, Star } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -19,21 +19,57 @@ export function ProductPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { isAuthenticated, user } = useAuth()
+  const isVendor = user?.role === 'vendor'
   const product = useProduct(productId)
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedImage, setSelectedImage] = useState(0)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewTitle, setReviewTitle] = useState('')
+  const [reviewComment, setReviewComment] = useState('')
   useEffect(() => setSelectedImage(0), [productId])
   const seller = useSeller(product.data?.vendor_id || '')
   const reviews = useProductReviews(productId, product.isSuccess)
+  const reviewEligibility = useQuery({
+    queryKey: ['product-review-eligibility', productId, user?.id],
+    queryFn: async () => (await client.get<{ eligible: boolean; order_item_id: string | null }>(`/products/${productId}/review-eligibility`)).data,
+    enabled: isAuthenticated && user?.role === 'customer' && product.isSuccess,
+    retry: false,
+  })
+  const submitReview = useMutation({
+    mutationFn: async () => {
+      if (!reviewEligibility.data?.order_item_id) throw new Error('A delivered purchase is required to review this product.')
+      return (await client.post(`/products/${productId}/reviews`, {
+        order_item_id: reviewEligibility.data.order_item_id,
+        rating: reviewRating,
+        ...(reviewTitle.trim() ? { title: reviewTitle.trim() } : {}),
+        comment: reviewComment.trim(),
+      })).data
+    },
+    onSuccess: async () => {
+      setReviewTitle('')
+      setReviewComment('')
+      setReviewRating(0)
+      toast.success('Thanks for sharing your review.')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['product-reviews', productId] }),
+        queryClient.invalidateQueries({ queryKey: ['product-review-eligibility', productId, user?.id] }),
+        queryClient.invalidateQueries({ queryKey: ['product', productId] }),
+      ])
+    },
+    onError: () => toast.error('We couldn’t submit your review. Please try again.'),
+  })
   const related = useRelatedProducts(productId, product.isSuccess)
   useDocumentTitle(product.data?.name || 'Product')
 
   const addToCart = useMutation({
-    mutationFn: async () => user?.role === 'customer'
-      ? client.post('/cart/mine/items', { product_id: productId, quantity })
-      : client.post('/cart/items', { product_id: productId, quantity, session_id: getGuestSessionId() }),
+    mutationFn: async () => {
+      if (isVendor) throw new Error('Seller accounts cannot place orders.')
+      return user?.role === 'customer'
+        ? client.post('/cart/mine/items', { product_id: productId, quantity })
+        : client.post('/cart/items', { product_id: productId, quantity, session_id: getGuestSessionId() })
+    },
     onSuccess: () => {
       setAdded(true)
       void queryClient.invalidateQueries({ queryKey: ['cart'] })
@@ -58,6 +94,7 @@ export function ProductPage() {
   const sellerName = seller.data?.display_name
 
   function buyNow() {
+    if (isVendor) return
     addToCart.mutate(undefined, {
       onSuccess: () => navigate(isAuthenticated ? '/checkout' : '/login?next=%2Fcheckout'),
     })
@@ -85,17 +122,17 @@ export function ProductPage() {
         {unavailable ? <p className="unavailable">Currently unavailable</p> : <p className="price large">{formatMoney(item.price)}</p>}
         <StockLabel stock={item.stock} />
         <label className="quantity-label">Quantity
-          <select disabled={unavailable} value={quantity} onChange={event => setQuantity(Number(event.target.value))}>
+          <select disabled={unavailable || isVendor} value={quantity} onChange={event => setQuantity(Number(event.target.value))}>
             {Array.from({ length: Math.min(item.stock || 10, 10) }, (_, index) => <option key={index + 1}>{index + 1}</option>)}
           </select>
         </label>
-        {added ? <div className="added-box">
+        {added && !isVendor ? <div className="added-box">
           <p><Check size={16} /> Added to cart</p>
           <Link className="button neutral" to="/cart">Go to cart</Link>
           <button className="button primary" onClick={() => navigate(isAuthenticated ? '/checkout' : '/login?next=%2Fcheckout')}>Proceed to checkout</button>
         </div> : <>
-          <button className="button primary full" disabled={unavailable || addToCart.isPending} onClick={() => addToCart.mutate()}>Add to cart</button>
-          <button className="button buy full" disabled={unavailable || addToCart.isPending} onClick={buyNow}>Buy now</button>
+          <button className="button primary full" disabled={unavailable || isVendor || addToCart.isPending} onClick={() => addToCart.mutate()}>{isVendor ? 'Add to cart (customers only)' : 'Add to cart'}</button>
+          <button className="button buy full" disabled={unavailable || isVendor || addToCart.isPending} onClick={buyNow}>Buy now</button>
         </>}
         <p className="muted secure"><LockKeyhole size={14} /> Secure transaction</p>
       </aside>
@@ -114,7 +151,13 @@ export function ProductPage() {
         <p>{review.comment}</p>
         <small>Reviewed on {new Date(review.created_at).toLocaleDateString('en-IN')}</small>
       </article>)}</div> : <p className="muted">No customer reviews yet.</p>)}
-      <Link className="button neutral" to={`/login?next=${encodeURIComponent(`${location.pathname}#reviews`)}`}>Write a customer review</Link>
+      {!isAuthenticated ? <Link className="button neutral" to={`/login?next=${encodeURIComponent(`${location.pathname}#reviews`)}`}>Sign in to review</Link> : user?.role !== 'customer' ? <p className="muted">Product reviews are available to customers after purchase.</p> : reviewEligibility.isPending ? <p className="muted">Checking your purchase history…</p> : reviewEligibility.isError ? <div className="review-eligibility-error"><p>We couldn’t check your purchase history.</p><button className="button neutral" onClick={() => void reviewEligibility.refetch()}>Try again</button></div> : reviewEligibility.data?.eligible ? <form className="product-review-form" onSubmit={event => { event.preventDefault(); submitReview.mutate() }}>
+        <h3>Share your experience</h3>
+        <div className="product-review-rating"><span id="review-rating-label">Your rating</span><div role="group" aria-labelledby="review-rating-label" className="product-review-stars">{[1, 2, 3, 4, 5].map(rating => <button key={rating} type="button" aria-label={`${rating} ${rating === 1 ? 'star' : 'stars'}`} aria-pressed={reviewRating === rating} onClick={() => setReviewRating(rating)}><Star size={25} strokeWidth={1.8} fill={rating <= reviewRating ? 'currentColor' : 'none'} /></button>)}</div><span className="product-review-rating-value" aria-live="polite">{reviewRating ? `${reviewRating} out of 5` : 'Select a rating'}</span></div>
+        <label>Title <span>(optional)</span><input maxLength={200} value={reviewTitle} onChange={event => setReviewTitle(event.target.value)} placeholder="Sum up your experience" /></label>
+        <label>Your review<textarea required minLength={1} maxLength={5000} rows={4} value={reviewComment} onChange={event => setReviewComment(event.target.value)} placeholder="What should other shoppers know?" /></label>
+        <button className="button primary" disabled={submitReview.isPending || reviewRating < 1 || !reviewComment.trim()}>{submitReview.isPending ? 'Submitting…' : 'Submit review'}</button>
+      </form> : <p className="review-purchase-note">Only customers with a delivered, paid purchase of this item can leave a review.</p>}
     </section>
   </>
 }

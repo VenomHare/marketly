@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { OrderItem, Product, ProductImage, User, Vendor, VendorKyc, VendorOrder, VendorSettlement } from "../models";
+import { Order, OrderItem, Product, ProductImage, User, Vendor, VendorKyc, VendorOrder, VendorSettlement } from "../models";
 import { AuthRequest, authenticate, requireVendor } from "../middleware/auth";
 import {
   vendorApplicationSchema,
@@ -345,10 +345,14 @@ vendorsRouter.get("/vendors/me/dashboard", authenticate, requireVendor, async (r
     }
 
     const vendorId = req.vendor!.id;
+    const eligibleOrderIds = await Order.distinct("_id", {
+      payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
+      status: { $in: ["placed", "completed"] },
+    }).then(ids => ids.map(String));
     const [activeProducts, totalOrders, openOrders, settlements] = await Promise.all([
       Product.countDocuments({ vendor_id: vendorId, status: "active" }),
-      VendorOrder.countDocuments({ vendor_id: vendorId }),
-      VendorOrder.countDocuments({ vendor_id: vendorId, status: { $in: ["placed", "packed", "shipped", "in_transit"] } }),
+      VendorOrder.countDocuments({ vendor_id: vendorId, order_id: { $in: eligibleOrderIds } }),
+      VendorOrder.countDocuments({ vendor_id: vendorId, order_id: { $in: eligibleOrderIds }, status: { $in: ["placed", "packed", "shipped", "in_transit"] } }),
       VendorSettlement.find({ vendor_id: vendorId }).select("gross_paise refund_paise net_paise status"),
     ]);
 
@@ -390,7 +394,11 @@ vendorsRouter.get("/vendors/me/orders", authenticate, requireVendor, async (req:
     }
 
     const { page, limit } = queryValidation.data;
-    const filter = { vendor_id: req.vendor!.id };
+    const eligibleOrderIds = await Order.distinct("_id", {
+      payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
+      status: { $in: ["placed", "completed"] },
+    }).then(ids => ids.map(String));
+    const filter = { vendor_id: req.vendor!.id, order_id: { $in: eligibleOrderIds } };
     const [vendorOrders, total] = await Promise.all([
       VendorOrder.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
       VendorOrder.countDocuments(filter),

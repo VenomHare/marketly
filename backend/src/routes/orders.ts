@@ -2,12 +2,22 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Address, Cart, CartItem, Coupon, CouponRedemption, InventoryMovement, Order, OrderItem, OrderStatusHistory, Payment, Product, ReturnRequest, Shipment, VendorOrder } from "../models";
+import { Address, Cart, CartItem, Coupon, CouponRedemption, InventoryMovement, Order, OrderItem, OrderStatusHistory, Payment, PaymentRefundRequest, Product, ProductImage, Review, ReturnRequest, Shipment, VendorOrder } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 import { acquireRedisMutex, acquireRedisMutexes, RedisMutexTimeoutError } from "../utils/redisMutex.js";
 
 const ordersRouter = Router();
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const getCustomerFulfillmentStatus = (orderStatus: string, statuses: string[]) => {
+  if (orderStatus === "cancelled") return "cancelled";
+  if (!statuses.length) return orderStatus;
+  if (statuses.every((status) => status === "delivered")) return "delivered";
+  if (statuses.every((status) => status === "cancelled")) return "cancelled";
+  for (const status of ["in_transit", "shipped", "packed"]) {
+    if (statuses.includes(status)) return status;
+  }
+  return orderStatus;
+};
 
 const checkoutPreviewSchema = z.object({
   cart_id: z.string().regex(/^[a-f\d]{24}$/i).optional(),
@@ -280,6 +290,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
 
       const [order] = await Order.create([{
         user_id: customerId,
+        cart_id: cart.id,
         address_snapshot: {
           label: address.label,
           first_line: address.first_line,
@@ -321,12 +332,6 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
         };
       });
       const createdItems = await OrderItem.create(orderItems, { session });
-      const vendorIds = [...new Set(orderItems.map((item) => item.vendor_id))];
-      await VendorOrder.create(vendorIds.map((vendorId) => ({
-        order_id: order.id,
-        vendor_id: vendorId,
-        status: "placed" as const,
-      })), { session });
       await InventoryMovement.create(createdItems.map((item) => ({
         product_id: item.product_id,
         order_item_id: item.id,
@@ -349,9 +354,6 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
         currency: "INR",
         idempotency_key: idempotencyKey,
       }], { session });
-      await CartItem.deleteMany({ cart_id: cart.id }).session(session);
-      await cart.deleteOne({ session });
-
       result = {
         status: 201,
         body: {
@@ -391,15 +393,24 @@ ordersRouter.get("/orders", authenticate, async (req: AuthRequest, res) => {
 
   try {
     const { page, limit } = validation.data;
-    const filter = { user_id: req.user.id };
+    const filter = { user_id: req.user.id, payment_status: { $in: ["paid", "partially_refunded", "refunded"] } };
     const [orders, total] = await Promise.all([
       Order.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Order.countDocuments(filter),
     ]);
+    const orderIds = orders.map((order) => order._id.toString());
+    const vendorOrders = orderIds.length ? await VendorOrder.find({ order_id: { $in: orderIds } }).sort({ created_at: 1, _id: 1 }).lean() : [];
+    const fulfillmentByOrder = new Map<string, string[]>();
+    for (const vendorOrder of vendorOrders) {
+      const statuses = fulfillmentByOrder.get(vendorOrder.order_id) ?? [];
+      statuses.push(vendorOrder.status);
+      fulfillmentByOrder.set(vendorOrder.order_id, statuses);
+    }
     return res.json({
       orders: orders.map((order) => ({
         id: order._id.toString(),
         status: order.status,
+        fulfillment_status: getCustomerFulfillmentStatus(order.status, fulfillmentByOrder.get(order._id.toString()) ?? []),
         payment_status: order.payment_status,
         subtotal_paise: order.subtotal_paise,
         discount_paise: order.discount_paise,
@@ -425,13 +436,27 @@ ordersRouter.get("/orders/:uuid", authenticate, async (req: AuthRequest, res) =>
   if (Object.keys(req.query).length > 0) return res.status(400).json({ message: "Unsupported query parameter" });
 
   try {
-    const order = await Order.findOne({ _id: orderId, user_id: req.user.id }).lean();
+    const order = await Order.findOne({ _id: orderId, user_id: req.user.id, payment_status: { $in: ["paid", "partially_refunded", "refunded"] } }).lean();
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const [items, payment] = await Promise.all([
       OrderItem.find({ order_id: order._id.toString() }).sort({ _id: 1 }).lean(),
       Payment.findOne({ order_id: order._id.toString() }).sort({ created_at: -1, _id: -1 }).lean(),
     ]);
+    const productIds = [...new Set(items.map((item) => item.product_id))];
+    const productImages = productIds.length
+      ? await ProductImage.find({ product_id: { $in: productIds } }).sort({ position: 1, _id: 1 }).lean()
+      : [];
+    const [fulfillment, existingReviews] = await Promise.all([
+      VendorOrder.find({ order_id: order._id.toString() }).select("vendor_id status").lean(),
+      items.length ? Review.find({ order_item_id: { $in: items.map((item) => item._id.toString()) } }).select("order_item_id").lean() : [],
+    ]);
+    const deliveredVendorIds = new Set(fulfillment.filter((vendorOrder) => vendorOrder.status === "delivered").map((vendorOrder) => vendorOrder.vendor_id));
+    const reviewedItemIds = new Set(existingReviews.map((review) => review.order_item_id));
+    const imageByProduct = new Map<string, { object_key: string; alt_text?: string }>();
+    for (const image of productImages) {
+      if (!imageByProduct.has(image.product_id)) imageByProduct.set(image.product_id, { object_key: image.object_key, alt_text: image.alt_text });
+    }
     return res.json({
       order: {
         id: order._id.toString(),
@@ -449,6 +474,9 @@ ordersRouter.get("/orders/:uuid", authenticate, async (req: AuthRequest, res) =>
         id: item._id.toString(),
         product_id: item.product_id,
         product_name: item.product_name,
+        image_key: imageByProduct.get(item.product_id)?.object_key ?? null,
+        image_alt: imageByProduct.get(item.product_id)?.alt_text ?? item.product_name,
+        can_review: order.payment_status === "paid" && (order.status === "completed" || deliveredVendorIds.has(item.vendor_id)) && !reviewedItemIds.has(item._id.toString()),
         sku: item.sku,
         unit_price_paise: item.unit_price_paise,
         quantity: item.quantity,
@@ -511,14 +539,38 @@ ordersRouter.post("/orders/:uuid/cancel", authenticate, async (req: AuthRequest,
         result = { status: 409, body: { message: "Order is already cancelled" } };
         return;
       }
-      if (order.status !== "pending" || order.payment_status === "paid" || order.payment_status === "partially_refunded" ||
-        order.payment_status === "refunded") {
+      const paidOrder = order.status === "placed" && order.payment_status === "paid";
+      if ((!paidOrder && (order.status !== "pending" || order.payment_status === "paid" || order.payment_status === "partially_refunded" || order.payment_status === "refunded"))) {
         result = { status: 409, body: { message: "Order cannot be cancelled in its current state" } };
         return;
       }
 
-      const payments = await Payment.find({ order_id: order.id }).session(session);
-      if (payments.some((payment) => payment.status === "processing" || payment.status === "success" || payment.status === "refunded")) {
+      const [payments, vendorOrders] = await Promise.all([
+        Payment.find({ order_id: order.id }).session(session),
+        VendorOrder.find({ order_id: order.id }).session(session),
+      ]);
+      if (vendorOrders.some((vendorOrder) => ["shipped", "in_transit", "delivered"].includes(vendorOrder.status))) {
+        result = { status: 409, body: { message: "Order can no longer be cancelled after shipping" } };
+        return;
+      }
+      if (paidOrder) {
+        if (vendorOrders.some((vendorOrder) => !["placed", "packed"].includes(vendorOrder.status))) {
+          result = { status: 409, body: { message: "Order can no longer be cancelled after shipping" } };
+          return;
+        }
+        const payment = payments.find((item) => item.status === "success" && item.provider === "razorpay" && item.provider_payment_id);
+        if (!payment || await PaymentRefundRequest.exists({ order_id: order.id, status: { $in: ["requested", "processing", "refunded"] } }).session(session)) {
+          result = { status: 409, body: { message: "Payment is not eligible for cancellation" } };
+          return;
+        }
+        await PaymentRefundRequest.create([{
+          payment_id: payment.id,
+          order_id: order.id,
+          user_id: order.user_id,
+          reason: "Order cancelled before shipment",
+          amount_paise: payment.amount_paise,
+        }], { session });
+      } else if (payments.some((payment) => payment.status === "processing" || payment.status === "success" || payment.status === "refunded")) {
         result = { status: 409, body: { message: "Payment is already processing or completed" } };
         return;
       }
@@ -534,15 +586,15 @@ ordersRouter.post("/orders/:uuid/cancel", authenticate, async (req: AuthRequest,
           reason: "cancellation" as const,
         })), { session });
       }
-      await Payment.updateMany({ order_id: order.id, status: { $in: ["created", "failed"] } }, { status: "failed" }, { session });
+      if (!paidOrder) await Payment.updateMany({ order_id: order.id, status: { $in: ["created", "failed"] } }, { status: "failed" }, { session });
       await CouponRedemption.deleteMany({ order_id: order.id }).session(session);
       order.status = "cancelled";
-      order.payment_status = "failed";
+      if (!paidOrder) order.payment_status = "failed";
       order.updated_at = new Date();
       await order.save({ session });
       result = {
         status: 200,
-        body: { id: order.id, status: order.status, payment_status: order.payment_status, updated_at: order.updated_at },
+        body: { id: order.id, status: order.status, payment_status: order.payment_status, refund_requested: paidOrder, updated_at: order.updated_at },
       };
     });
     if (!result) return res.status(500).json({ message: "Failed to cancel order" });
@@ -578,7 +630,9 @@ ordersRouter.post("/orders/:uuid/return", authenticate, async (req: AuthRequest,
   try {
     const order = await Order.findOne({ _id: orderId, user_id: req.user.id }).select("_id status payment_status");
     if (!order) return res.status(404).json({ message: "Order not found" });
-    if (order.status !== "completed" || order.payment_status !== "paid") {
+    const fulfillment = await VendorOrder.find({ order_id: order.id }).select("status").lean();
+    const delivered = fulfillment.length > 0 && fulfillment.every((vendorOrder) => vendorOrder.status === "delivered");
+    if ((order.status !== "completed" && !delivered) || order.payment_status !== "paid") {
       return res.status(409).json({ message: "Order is not eligible for return" });
     }
     if (await ReturnRequest.exists({ order_id: order.id })) {
@@ -610,6 +664,46 @@ ordersRouter.post("/orders/:uuid/return", authenticate, async (req: AuthRequest,
   }
 });
 
+ordersRouter.post("/orders/:uuid/refund", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  const orderId = req.params.uuid;
+  if (typeof orderId !== "string" || !/^[a-f\d]{24}$/i.test(orderId)) return res.status(400).json({ message: "Invalid order id" });
+  if (Object.keys(req.query).length > 0) return res.status(400).json({ message: "Unsupported query parameter" });
+  const validation = returnRequestSchema.safeParse(req.body);
+  if (!validation.success) return res.status(400).json({ message: "Invalid request body" });
+  let releaseLock: () => Promise<void>;
+  try { releaseLock = await acquireRedisMutex(`order:${orderId}`); }
+  catch (error) {
+    if (error instanceof RedisMutexTimeoutError) return res.status(409).json({ message: "Order update is already in progress" });
+    console.error("Acquire order refund mutex error:", error);
+    return res.status(503).json({ message: "Order refund is temporarily unavailable" });
+  }
+  try {
+    const order = await Order.findOne({ _id: orderId, user_id: req.user.id });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    const vendorOrders = await VendorOrder.find({ order_id: order.id }).select("status").lean();
+    const delivered = order.status === "completed" || (vendorOrders.length > 0 && vendorOrders.every((vendorOrder) => vendorOrder.status === "delivered"));
+    if (!delivered || order.payment_status !== "paid") return res.status(409).json({ message: "Order is not eligible for a refund" });
+    const payment = await Payment.findOne({ order_id: order.id, status: "success", provider: "razorpay", provider_payment_id: { $exists: true } });
+    if (!payment) return res.status(409).json({ message: "Payment is not eligible for a refund" });
+    if (await PaymentRefundRequest.exists({ order_id: order.id, status: { $in: ["requested", "processing", "refunded"] } })) {
+      return res.status(409).json({ message: "A refund has already been requested for this order" });
+    }
+    const refundRequest = await PaymentRefundRequest.create({
+      payment_id: payment.id,
+      order_id: order.id,
+      user_id: req.user.id,
+      reason: validation.data.reason,
+      amount_paise: payment.amount_paise,
+    });
+    return res.status(201).json({ refund_request: { id: refundRequest.id, order_id: refundRequest.order_id, reason: refundRequest.reason, status: refundRequest.status, amount_paise: refundRequest.amount_paise, created_at: refundRequest.created_at } });
+  } catch (error) {
+    if ((error as Error & { code?: number }).code === 11000) return res.status(409).json({ message: "A refund has already been requested for this order" });
+    console.error("Request order refund error:", error);
+    return res.status(500).json({ message: "Failed to request order refund" });
+  } finally { await releaseLock(); }
+});
+
 ordersRouter.get("/orders/:uuid/tracking", authenticate, async (req: AuthRequest, res) => {
   if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
   const orderId = req.params.uuid;
@@ -619,7 +713,7 @@ ordersRouter.get("/orders/:uuid/tracking", authenticate, async (req: AuthRequest
   if (Object.keys(req.query).length > 0) return res.status(400).json({ message: "Unsupported query parameter" });
 
   try {
-    const order = await Order.findOne({ _id: orderId, user_id: req.user.id }).select("_id status").lean();
+    const order = await Order.findOne({ _id: orderId, user_id: req.user.id, payment_status: { $in: ["paid", "partially_refunded", "refunded"] } }).select("_id status").lean();
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     const vendorOrders = await VendorOrder.find({ order_id: order._id.toString() }).sort({ created_at: 1, _id: 1 }).lean();

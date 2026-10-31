@@ -20,4 +20,6 @@ const VendorOrderSchema = new Schema<IVendorOrder>(
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
 
+VendorOrderSchema.index({ order_id: 1, vendor_id: 1 }, { unique: true });
+
 export default mongoose.model<IVendorOrder>("VendorOrder", VendorOrderSchema);

@@ -24,4 +24,6 @@ const ReviewSchema = new Schema<IReview>(
   { timestamps: { createdAt: "created_at" } }
 );
 
+ReviewSchema.index({ order_item_id: 1 }, { unique: true });
+
 export default mongoose.model<IReview>("Review", ReviewSchema);

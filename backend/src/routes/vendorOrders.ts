@@ -1,10 +1,20 @@
 import { Router } from "express";
 import { z } from "zod";
-import { OrderItem, OrderStatusHistory, Shipment, User, VendorOrder } from "../models";
+import { Order, OrderItem, OrderStatusHistory, Shipment, User, VendorOrder } from "../models";
 import { AuthRequest, authenticate, requireVendor } from "../middleware/auth";
 import { vendorIdSchema, vendorProductsQuerySchema } from "../validators/vendors";
 
 const vendorOrdersRouter = Router();
+const findPaidVendorOrder = async (orderId: string, vendorId: string) => {
+  const vendorOrder = await VendorOrder.findOne({ _id: orderId, vendor_id: vendorId });
+  if (!vendorOrder) return null;
+  const paidOrder = await Order.exists({
+    _id: vendorOrder.order_id,
+    payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
+    status: { $in: ["placed", "completed"] },
+  });
+  return paidOrder ? vendorOrder : null;
+};
 const vendorOrderStatusSchema = z.object({
   status: z.enum(["packed", "shipped", "in_transit", "delivered", "cancelled"]),
 }).strict();
@@ -45,7 +55,11 @@ vendorOrdersRouter.get("/vendor-orders", authenticate, requireVendor, async (req
     }
 
     const { page, limit } = queryValidation.data;
-    const filter = { vendor_id: req.vendor!.id };
+    const eligibleOrderIds = await Order.distinct("_id", {
+      payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
+      status: { $in: ["placed", "completed"] },
+    }).then(ids => ids.map(String));
+    const filter = { vendor_id: req.vendor!.id, order_id: { $in: eligibleOrderIds } };
     const [vendorOrders, total] = await Promise.all([
       VendorOrder.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
       VendorOrder.countDocuments(filter),
@@ -97,7 +111,7 @@ vendorOrdersRouter.get("/vendor-orders/:uuid", authenticate, requireVendor, asyn
       return res.status(403).json({ message: "Active vendor account required" });
     }
 
-    const vendorOrder = await VendorOrder.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id });
+    const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
 
     const [items, shipment] = await Promise.all([
@@ -148,7 +162,7 @@ vendorOrdersRouter.patch("/vendor-orders/:uuid/status", authenticate, requireVen
       return res.status(403).json({ message: "Active vendor account required" });
     }
 
-    const vendorOrder = await VendorOrder.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id });
+    const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
 
     const nextStatus = validation.data.status;
@@ -185,7 +199,7 @@ vendorOrdersRouter.post("/vendor-orders/:uuid/shipment", authenticate, requireVe
     if (!user || user.status !== "active") {
       return res.status(403).json({ message: "Active vendor account required" });
     }
-    const vendorOrder = await VendorOrder.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id });
+    const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
     if (await Shipment.exists({ vendor_order_id: vendorOrder.id })) {
       return res.status(409).json({ message: "Shipment already exists" });
@@ -225,7 +239,7 @@ vendorOrdersRouter.patch("/vendor-orders/:uuid/shipment", authenticate, requireV
     if (!user || user.status !== "active") {
       return res.status(403).json({ message: "Active vendor account required" });
     }
-    const vendorOrder = await VendorOrder.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id });
+    const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
     const shipment = await Shipment.findOne({ vendor_order_id: vendorOrder.id });
     if (!shipment) return res.status(404).json({ message: "Shipment not found" });
@@ -261,7 +275,7 @@ vendorOrdersRouter.get("/vendor-orders/:uuid/history", authenticate, requireVend
     if (!user || user.status !== "active") {
       return res.status(403).json({ message: "Active vendor account required" });
     }
-    const vendorOrder = await VendorOrder.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id });
+    const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
 
     const history = await OrderStatusHistory.find({ vendor_order_id: vendorOrder.id })
