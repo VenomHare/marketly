@@ -115,6 +115,16 @@ async function ensureProductsIndex(): Promise<void> {
   await productsIndexReady;
 }
 
+export async function resetProductsIndex(): Promise<void> {
+  for (const operation of pendingIndexOperations.values()) {
+    if (operation.timer) clearTimeout(operation.timer);
+  }
+  pendingIndexOperations.clear();
+  productsIndexReady = undefined;
+  await elasticsearchRequest("DELETE", "products", undefined, [404]);
+  await ensureProductsIndex();
+}
+
 export async function indexProduct(product: SearchableProduct): Promise<void> {
   await ensureProductsIndex();
   // Mongoose documents carry MongoDB's `_id` field in addition to the public `id`

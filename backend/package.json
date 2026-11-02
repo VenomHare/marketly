@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed:categories": "tsx src/seed/runCategories.ts",
+    "seed": "tsx src/seed/seedDatabase.ts",
     "test": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts"
   },
