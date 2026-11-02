@@ -1,6 +1,7 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import { z } from "zod";
-import { Order, OrderItem, OrderStatusHistory, Shipment, User, VendorOrder } from "../models";
+import { Coupon, CouponRedemption, Order, OrderItem, OrderStatusHistory, Shipment, User, Vendor, VendorOrder, VendorSettlement } from "../models";
 import { AuthRequest, authenticate, requireVendor } from "../middleware/auth";
 import { vendorIdSchema, vendorProductsQuerySchema } from "../validators/vendors";
 
@@ -65,9 +66,11 @@ vendorOrdersRouter.get("/vendor-orders", authenticate, requireVendor, async (req
       VendorOrder.countDocuments(filter),
     ]);
     const orderIds = vendorOrders.map((vendorOrder) => vendorOrder.order_id);
-    const items = orderIds.length
-      ? await OrderItem.find({ vendor_id: req.vendor!.id, order_id: { $in: orderIds } })
-      : [];
+    const [items, orders] = await Promise.all([
+      OrderItem.find({ vendor_id: req.vendor!.id, order_id: { $in: orderIds } }),
+      Order.find({ _id: { $in: orderIds } }).select("payment_status").lean(),
+    ]);
+    const paymentStatusByOrderId = new Map(orders.map((order) => [order._id.toString(), order.payment_status]));
     const itemsByOrderId = new Map<string, typeof items>();
     for (const item of items) {
       const orderItems = itemsByOrderId.get(item.order_id) ?? [];
@@ -80,6 +83,7 @@ vendorOrdersRouter.get("/vendor-orders", authenticate, requireVendor, async (req
         id: vendorOrder.id,
         order_id: vendorOrder.order_id,
         status: vendorOrder.status,
+        payment_status: paymentStatusByOrderId.get(vendorOrder.order_id) ?? "paid",
         items: (itemsByOrderId.get(vendorOrder.order_id) ?? []).map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
@@ -114,15 +118,20 @@ vendorOrdersRouter.get("/vendor-orders/:uuid", authenticate, requireVendor, asyn
     const vendorOrder = await findPaidVendorOrder(req.params.uuid, req.vendor!.id);
     if (!vendorOrder) return res.status(404).json({ message: "Vendor order not found" });
 
-    const [items, shipment] = await Promise.all([
+    const [items, shipment, redemption, order] = await Promise.all([
       OrderItem.find({ order_id: vendorOrder.order_id, vendor_id: req.vendor!.id }),
       Shipment.findOne({ vendor_order_id: vendorOrder.id }),
+      CouponRedemption.findOne({ order_id: vendorOrder.order_id }).lean(),
+      Order.findById(vendorOrder.order_id).select("payment_status").lean(),
     ]);
+    const coupon = redemption ? await Coupon.findById(redemption.coupon_id).select("code").lean() : null;
 
     return res.json({
       id: vendorOrder.id,
       order_id: vendorOrder.order_id,
       status: vendorOrder.status,
+      payment_status: order?.payment_status ?? "paid",
+      coupon: redemption ? { code: coupon?.code ?? null, discount_paise: items.reduce((sum, item) => sum + item.discount_paise, 0) } : null,
       items: items.map((item) => ({
         product_id: item.product_id,
         product_name: item.product_name,
@@ -171,16 +180,53 @@ vendorOrdersRouter.patch("/vendor-orders/:uuid/status", authenticate, requireVen
     }
 
     const previousStatus = vendorOrder.status;
-    vendorOrder.status = nextStatus;
-    await vendorOrder.save();
-    await OrderStatusHistory.create({
-      vendor_order_id: vendorOrder.id,
-      previous_status: previousStatus,
-      new_status: nextStatus,
-      changed_by_user_id: req.user!.id,
-    });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const changed = await VendorOrder.findOneAndUpdate(
+          { _id: vendorOrder.id, vendor_id: req.vendor!.id, status: previousStatus },
+          { $set: { status: nextStatus, updated_at: new Date() } },
+          { new: true, session },
+        );
+        if (!changed) throw Object.assign(new Error("Order status changed during update"), { statusConflict: true });
+        await OrderStatusHistory.create([{
+          vendor_order_id: changed.id,
+          previous_status: previousStatus,
+          new_status: nextStatus,
+          changed_by_user_id: req.user!.id,
+        }], { session });
 
-    return res.json({ id: vendorOrder.id, status: vendorOrder.status, updated_at: vendorOrder.updated_at });
+        if (nextStatus === "delivered") {
+          const [items, vendor] = await Promise.all([
+            OrderItem.find({ order_id: changed.order_id, vendor_id: changed.vendor_id }).session(session).lean(),
+            Vendor.findById(changed.vendor_id).select("commission_rate_bps").session(session).lean(),
+          ]);
+          if (!vendor || items.length === 0) throw new Error("Cannot create settlement without vendor order items");
+          const grossPaise = items.reduce((sum, item) => sum + item.line_total_paise, 0);
+          const commissionPaise = Math.floor(grossPaise * vendor.commission_rate_bps / 10_000);
+          await VendorSettlement.updateOne(
+            { vendor_order_id: changed.id },
+            { $setOnInsert: {
+              vendor_order_id: changed.id,
+              vendor_id: changed.vendor_id,
+              gross_paise: grossPaise,
+              commission_paise: commissionPaise,
+              refund_paise: 0,
+              net_paise: grossPaise - commissionPaise,
+              status: "pending",
+            } },
+            { upsert: true, session },
+          );
+        }
+      });
+    } catch (error) {
+      if (error && typeof error === "object" && "statusConflict" in error) return res.status(409).json({ message: "Order status changed during update" });
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+    const updatedOrder = await VendorOrder.findById(vendorOrder.id).select("status updated_at").lean();
+    return res.json({ id: vendorOrder.id, status: updatedOrder!.status, updated_at: updatedOrder!.updated_at });
   } catch (error) {
     console.error("Update vendor order status error:", error);
     return res.status(500).json({ message: "Failed to update vendor order status" });

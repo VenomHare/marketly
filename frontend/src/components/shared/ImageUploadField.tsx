@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, Check, ImagePlus, LoaderCircle, RefreshCw, UploadCloud, X } from 'lucide-react'
 import { client } from '../../api/client'
+import { ConfirmActionModal } from '../ui/ConfirmActionModal'
 import { getImageUrl } from '../../utils/image-url'
 
 type UploadPurpose = 'kyc' | 'product'
@@ -27,6 +28,8 @@ export function ImageUploadField({ label, purpose, value, productId, onChange, o
   const [uploading, setUploading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
+  const [confirmRemoval, setConfirmRemoval] = useState(false)
+  const [replacementSelection, setReplacementSelection] = useState<File[] | null>(null)
 
   useEffect(() => () => { if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
@@ -56,7 +59,7 @@ export function ImageUploadField({ label, purpose, value, productId, onChange, o
       }
   }
 
-  async function upload(selection: FileList | null) {
+  async function upload(selection: FileList | null, replacementConfirmed = false) {
     const files = Array.from(selection ?? [])
     if (!files.length) return
 
@@ -79,6 +82,10 @@ export function ImageUploadField({ label, purpose, value, productId, onChange, o
     }
     if (!validFiles.length) {
       setError(validationErrors.join(' '))
+      return
+    }
+    if (value && !multiple && !replacementConfirmed) {
+      setReplacementSelection(files)
       return
     }
 
@@ -122,7 +129,9 @@ export function ImageUploadField({ label, purpose, value, productId, onChange, o
     {uploadProgress && <p className="image-upload-progress" aria-live="polite"><LoaderCircle className="vendor-spinner" size={13} /> {uploadProgress}</p>}
     {error && <p className="image-upload-error" role="alert"><AlertCircle size={14} /> {error}</p>}
     {!error && helperText && <p className="image-upload-help">{helperText}</p>}
-    {value && !success && <button className="image-upload-remove" type="button" onClick={() => { onChange(undefined); setPreviewUrl(undefined); setSuccess(false) }} disabled={disabled}><X size={13} /> Remove image</button>}
+    {value && !uploading && <button className="image-upload-remove" type="button" onClick={() => setConfirmRemoval(true)} disabled={disabled}><X size={13} /> Remove image</button>}
+    {confirmRemoval && <ConfirmActionModal title={`Remove ${label.toLowerCase()}?`} description="This removes the image from this submission. You will need to upload it again if you change your mind." confirmLabel="Remove image" onCancel={() => setConfirmRemoval(false)} onConfirm={() => { onChange(undefined); setPreviewUrl(undefined); setSuccess(false); setConfirmRemoval(false) }} />}
+    {replacementSelection && <ConfirmActionModal title={`Replace ${label.toLowerCase()}?`} description="The current image will be replaced. You will need the original file to restore it." confirmLabel="Replace image" onCancel={() => setReplacementSelection(null)} onConfirm={() => { const selection = replacementSelection; setReplacementSelection(null); void upload(selection, true) }} />}
   </div>
 }
 

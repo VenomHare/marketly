@@ -5,6 +5,7 @@ import { z } from "zod";
 import { Address, Cart, CartItem, Coupon, CouponRedemption, InventoryMovement, Order, OrderItem, OrderStatusHistory, Payment, PaymentRefundRequest, Product, ProductImage, Review, ReturnRequest, Shipment, VendorOrder } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 import { acquireRedisMutex, acquireRedisMutexes, RedisMutexTimeoutError } from "../utils/redisMutex.js";
+import { createDocumentPdf, pdfMoney } from "../utils/pdf.js";
 
 const ordersRouter = Router();
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -116,18 +117,30 @@ ordersRouter.post("/checkout/preview", (req, res, next) => {
         couponResult = { code: coupon.code, valid: false, message: "Coupon is not active yet" };
       } else if (coupon.expires_at <= now) {
         couponResult = { code: coupon.code, valid: false, message: "Coupon has expired" };
-      } else if (coupon.min_order_paise !== undefined && subtotalPaise < coupon.min_order_paise) {
-        couponResult = { code: coupon.code, valid: false, message: "Order does not meet the minimum amount" };
-      } else if (coupon.usage_limit !== undefined &&
-        await CouponRedemption.countDocuments({ coupon_id: coupon._id.toString() }) >= coupon.usage_limit) {
-        couponResult = { code: coupon.code, valid: false, message: "Coupon usage limit has been reached" };
       } else {
-        discountPaise = coupon.discount_type === "percentage"
-          ? Math.floor(subtotalPaise * coupon.discount_value / 100)
-          : coupon.discount_value;
-        if (coupon.max_discount_paise !== undefined) discountPaise = Math.min(discountPaise, coupon.max_discount_paise);
-        discountPaise = Math.max(0, Math.min(discountPaise, subtotalPaise));
-        couponResult = { code: coupon.code, valid: true };
+        const eligibleProductIds = coupon.product_ids?.length ? new Set(coupon.product_ids) : undefined;
+        const eligibleSubtotalPaise = eligibleProductIds
+          ? cartItems.reduce((sum, item) => {
+            const product = productsById.get(item.product_id);
+            return eligibleProductIds.has(item.product_id) && product?.status === "active" && Number.isSafeInteger(item.quantity) && item.quantity > 0
+              ? sum + product.price * item.quantity : sum;
+          }, 0)
+          : subtotalPaise;
+        if (eligibleProductIds && eligibleSubtotalPaise === 0) {
+          couponResult = { code: coupon.code, valid: false, message: "Coupon does not apply to products in this cart" };
+        } else if (coupon.min_order_paise !== undefined && eligibleSubtotalPaise < coupon.min_order_paise) {
+          couponResult = { code: coupon.code, valid: false, message: "Order does not meet the minimum amount" };
+        } else if (coupon.usage_limit !== undefined &&
+          await CouponRedemption.countDocuments({ coupon_id: coupon._id.toString() }) >= coupon.usage_limit) {
+          couponResult = { code: coupon.code, valid: false, message: "Coupon usage limit has been reached" };
+        } else {
+          discountPaise = coupon.discount_type === "percentage"
+            ? Math.floor(eligibleSubtotalPaise * coupon.discount_value / 100)
+            : coupon.discount_value;
+          if (coupon.max_discount_paise !== undefined) discountPaise = Math.min(discountPaise, coupon.max_discount_paise);
+          discountPaise = Math.max(0, Math.min(discountPaise, eligibleSubtotalPaise));
+          couponResult = { code: coupon.code, valid: true };
+        }
       }
     }
 
@@ -254,8 +267,13 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
       let discountPaise = 0;
       if (couponCode) {
         coupon = await Coupon.findOne({ code: new RegExp(`^${escapeRegex(couponCode)}$`, "i") }).session(session);
+        const eligibleProductIds = coupon?.product_ids?.length ? new Set(coupon.product_ids) : undefined;
+        const eligibleSubtotalPaise = eligibleProductIds
+          ? [...quantities.entries()].reduce((sum, [productId, quantity]) => eligibleProductIds.has(productId) ? sum + productsById.get(productId)!.price * quantity : sum, 0)
+          : subtotalPaise;
         if (!coupon || !coupon.is_active || coupon.starts_at > now || coupon.expires_at <= now ||
-          (coupon.min_order_paise !== undefined && subtotalPaise < coupon.min_order_paise)) {
+          (eligibleProductIds && eligibleSubtotalPaise === 0) ||
+          (coupon.min_order_paise !== undefined && eligibleSubtotalPaise < coupon.min_order_paise)) {
           result = { status: 400, body: { message: "Coupon is invalid or unavailable" } };
           return;
         }
@@ -265,14 +283,14 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
           return;
         }
         discountPaise = coupon.discount_type === "percentage"
-          ? Math.floor(subtotalPaise * coupon.discount_value / 100)
+          ? Math.floor(eligibleSubtotalPaise * coupon.discount_value / 100)
           : coupon.discount_value;
         if (!Number.isSafeInteger(discountPaise) || discountPaise < 0) {
           result = { status: 409, body: { message: "Coupon has an invalid discount configuration" } };
           return;
         }
         if (coupon.max_discount_paise !== undefined) discountPaise = Math.min(discountPaise, coupon.max_discount_paise);
-        discountPaise = Math.min(discountPaise, subtotalPaise);
+        discountPaise = Math.min(discountPaise, eligibleSubtotalPaise);
       }
 
       const shippingPaise = 0;
@@ -312,12 +330,17 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
       if (!order) throw new Error("Failed to create order");
 
       let remainingDiscount = discountPaise;
+      const eligibleProductIds = coupon?.product_ids?.length ? new Set(coupon.product_ids) : undefined;
+      const eligibleItemIndexes = cartItems.map((item, index) => ({ item, index })).filter(({ item }) => !eligibleProductIds || eligibleProductIds.has(item.product_id));
+      const eligibleSubtotalPaise = eligibleItemIndexes.reduce((sum, { item }) => sum + productsById.get(item.product_id)!.price * item.quantity, 0);
+      const lastEligibleIndex = eligibleItemIndexes.at(-1)?.index;
       const orderItems = cartItems.map((item, index) => {
         const product = productsById.get(item.product_id)!;
         const grossPaise = product.price * item.quantity;
-        const allocatedDiscount = index === cartItems.length - 1
+        const isEligible = !eligibleProductIds || eligibleProductIds.has(item.product_id);
+        const allocatedDiscount = !isEligible ? 0 : index === lastEligibleIndex
           ? remainingDiscount
-          : subtotalPaise > 0 ? Math.floor(discountPaise * grossPaise / subtotalPaise) : 0;
+          : eligibleSubtotalPaise > 0 ? Math.floor(discountPaise * grossPaise / eligibleSubtotalPaise) : 0;
         remainingDiscount -= allocatedDiscount;
         return {
           order_id: order.id,
@@ -424,6 +447,45 @@ ordersRouter.get("/orders", authenticate, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error("List orders error:", error);
     return res.status(500).json({ message: "Failed to fetch orders" });
+  }
+});
+
+ordersRouter.get("/orders/:uuid/invoice.pdf", authenticate, async (req: AuthRequest, res) => {
+  if (req.user?.role !== "customer") return res.status(403).json({ message: "Customer access required" });
+  const orderId = req.params.uuid;
+  if (typeof orderId !== "string" || !/^[a-f\d]{24}$/i.test(orderId)) return res.status(400).json({ message: "Invalid order id" });
+  try {
+    const order = await Order.findOne({ _id: orderId, user_id: req.user.id, payment_status: { $in: ["paid", "partially_refunded", "refunded"] } }).lean();
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    const [items, payment] = await Promise.all([
+      OrderItem.find({ order_id: orderId }).sort({ _id: 1 }).lean(),
+      Payment.findOne({ order_id: orderId }).sort({ created_at: -1, _id: -1 }).lean(),
+    ]);
+    const address = order.address_snapshot as Record<string, string | undefined>;
+    const lines = [
+      `INVOICE  #${orderId.toUpperCase()}`,
+      `Invoice date: ${new Date(order.created_at).toLocaleDateString("en-IN")}`,
+      `Order status: ${order.status}  |  Payment status: ${order.payment_status}`,
+      "", "BILLED TO", address.addressee_name ?? "Customer", address.first_line ?? "",
+      address.second_line ?? "", [address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", "),
+      address.contact_number ? `Contact: ${address.contact_number}` : "",
+      "", "ITEMIZED PURCHASE", "Product | SKU | Qty | Unit price | Discount | Line total",
+      ...items.map((item) => `${item.product_name} | ${item.sku} | ${item.quantity} | ${pdfMoney(item.unit_price_paise)} | ${pdfMoney(item.discount_paise)} | ${pdfMoney(item.line_total_paise)}`),
+      "", `Subtotal: ${pdfMoney(order.subtotal_paise)}`,
+      `Discount: -${pdfMoney(order.discount_paise)}`,
+      `Shipping: ${pdfMoney(order.shipping_paise)}`,
+      `ORDER TOTAL: ${pdfMoney(order.total_paise)}`,
+      `Payment: ${payment ? `${payment.provider} / ${payment.status} / ${payment.currency}` : order.payment_status}`,
+      payment?.provider_payment_id ? `Payment reference: ${payment.provider_payment_id}` : "",
+      "", "Thank you for shopping with Marketly.",
+    ].filter((line) => line !== "");
+    const pdf = createDocumentPdf("Customer order invoice", `Order ${orderId.toUpperCase()}  ·  Marketly`, lines);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=marketly-order-${orderId.slice(-8)}.pdf`);
+    return res.send(pdf);
+  } catch (error) {
+    console.error("Create order invoice error:", error);
+    return res.status(500).json({ message: "Failed to create order invoice" });
   }
 });
 

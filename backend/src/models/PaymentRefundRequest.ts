@@ -8,6 +8,7 @@ export interface IPaymentRefundRequest extends Document {
   reason: string;
   status: "requested" | "processing" | "refunded" | "failed" | "rejected" | "cancelled";
   provider_refund_id?: string;
+  settlement_adjusted: boolean;
   amount_paise: number;
   reviewed_by?: string;
   reviewed_at?: Date;
@@ -23,6 +24,7 @@ const PaymentRefundRequestSchema = new Schema<IPaymentRefundRequest>(
     reason: { type: String, required: true, trim: true, maxlength: 1000 },
     status: { type: String, enum: ["requested", "processing", "refunded", "failed", "rejected", "cancelled"], default: "requested" },
     provider_refund_id: { type: String },
+    settlement_adjusted: { type: Boolean, default: false },
     amount_paise: { type: Number, required: true },
     reviewed_by: { type: String },
     reviewed_at: { type: Date },

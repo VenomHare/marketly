@@ -18,7 +18,7 @@ Public. Lists coupons where `is_active` is true, `starts_at` is at or before the
 | `page` | integer | `1` | At least `1` |
 | `limit` | integer | `20` | `1` through `100` |
 
-Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response includes a `coupons` array and `pagination` (`page`, `limit`, `total`, `total_pages`). Coupon objects expose `id`, `code`, `discount_type`, `discount_value`, optional `max_discount_paise`, `min_order_paise`, and `usage_limit`, plus `starts_at`, `expires_at`, and `is_active`.
+Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response includes a `coupons` array and `pagination` (`page`, `limit`, `total`, `total_pages`). Coupon objects expose `id`, `code`, `discount_type`, `discount_value`, optional `product_ids`, `max_discount_paise`, `min_order_paise`, and `usage_limit`, plus `starts_at`, `expires_at`, and `is_active`. When `product_ids` is absent, the coupon applies to the full order subtotal; otherwise it applies only to the listed products.
 
 ## `GET /coupons/:uuid`
 
@@ -35,9 +35,21 @@ Public. Requires a JSON object with exactly these fields:
 }
 ```
 
-`code` is trimmed and looked up case-insensitively; it must contain 1–100 characters. `subtotal_paise` must be a nonnegative safe integer. Missing, malformed, or unknown fields return `400 {"message":"Invalid request body"}`.
+`code` is trimmed and looked up case-insensitively; it must contain 1–100 characters. `subtotal_paise` must be a nonnegative safe integer. For product-targeted coupons, send `eligible_subtotal_paise` with the total of targeted products in the cart. Missing, malformed, or unknown fields return `400 {"message":"Invalid request body"}`.
 
-Coupon business validation failures return HTTP 200 with `{ "valid": false, "message": "..." }`. These include an unknown, inactive, not-yet-started, expired, below-minimum, or usage-exhausted coupon. A valid coupon returns `{ "valid": true, "coupon_id": "...", "code": "...", "discount_paise": 0 }`. Percentage discounts are rounded down to whole paise, capped by `max_discount_paise` when set, and never exceed the subtotal. Fixed discounts are also capped at the subtotal.
+Coupon business validation failures return HTTP 200 with `{ "valid": false, "message": "..." }`. These include an unknown, inactive, not-yet-started, expired, below-minimum, inapplicable product, or usage-exhausted coupon. A valid coupon returns `{ "valid": true, "coupon_id": "...", "code": "...", "discount_paise": 0 }`. Percentage discounts are rounded down to whole paise, capped by `max_discount_paise` when set, and never exceed the applicable subtotal. Fixed discounts are also capped at the applicable subtotal.
+
+## Vendor coupon management
+
+Listing and deleting require a vendor account; creating requires a verified vendor account. Vendor-created coupons must target one or more products owned by that vendor.
+
+- `GET /vendors/me/coupons` lists the vendor's coupons.
+- `POST /vendors/me/coupons` creates a coupon. Its body uses the coupon fields above and requires a nonempty `product_ids` array.
+- `DELETE /vendors/me/coupons/:uuid` deletes an unused coupon or deactivates one with redemption history. Vendors can only manage their own coupons.
+
+Vendor coupon codes are globally unique, like admin coupon codes. Product coupons calculate minimum spend and discounts from eligible products only. Products outside the target list receive no discount.
+
+Admins can continue to create whole-site coupons at `POST /admin/coupons` by omitting `product_ids`. Admins may also supply `product_ids` to target selected products.
 
 ## `GET /users/me/coupons`
 

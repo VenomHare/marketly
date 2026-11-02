@@ -5,6 +5,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { client } from '../../api/client'
 import type { AuthUser } from '../../api/auth-storage'
 import { ImageUploadField } from '../../components/shared/ImageUploadField'
+import { ConfirmActionModal } from '../../components/ui/ConfirmActionModal'
 import { useDocumentTitle } from '../../utils/use-document-title'
 
 type KycStatus = 'not_submitted' | 'pending' | 'rejected' | 'verified'
@@ -37,6 +38,7 @@ export function VendorKycPage() {
   const [addressKey, setAddressKey] = useState<string>()
   const [identityKey, setIdentityKey] = useState<string>()
   const [formError, setFormError] = useState('')
+  const [confirmSubmission, setConfirmSubmission] = useState(false)
 
   const me = useQuery({
     queryKey: ['auth', 'me'],
@@ -75,7 +77,7 @@ export function VendorKycPage() {
       setFormError('Upload both proof of address and proof of identity before submitting.')
       return
     }
-    submit.mutate()
+    setConfirmSubmission(true)
   }
 
   return <section className="vendor-kyc-page">
@@ -100,6 +102,7 @@ export function VendorKycPage() {
       {submit.error && <p className="vendor-form-error" role="alert">{requestError(submit.error)}</p>}
       <div className="vendor-kyc-submit-row"><span>Your documents are uploaded securely and are only used for seller verification.</span><button type="submit" className="button primary" disabled={submit.isPending || !addressKey || !identityKey}>{submit.isPending ? 'Submitting…' : status === 'rejected' ? 'Resubmit for review' : 'Submit for review'}</button></div>
     </form>}
+    {confirmSubmission && <ConfirmActionModal title={status === 'rejected' ? 'Resubmit your documents?' : 'Submit documents for review?'} description="Your documents will be sent to the verification team. You cannot edit this submission while it is under review." confirmLabel={status === 'rejected' ? 'Resubmit documents' : 'Submit documents'} busy={submit.isPending} onCancel={() => setConfirmSubmission(false)} onConfirm={() => { setConfirmSubmission(false); submit.mutate() }} />}
   </section>
 }
 

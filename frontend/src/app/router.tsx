@@ -24,6 +24,7 @@ const router = createBrowserRouter([
       { path: 'vendor/apply', lazy: () => import('../features/vendor/ApplyVendorPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/dashboard', lazy: () => import('../features/vendor/VendorDashboardPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/products', lazy: () => import('../features/vendor/VendorProductsPage'), hydrateFallbackElement: <VendorPageLoading /> },
+      { path: 'vendor/coupons', lazy: () => import('../features/vendor/VendorCouponsPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/orders', lazy: () => import('../features/vendor/VendorOrdersPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: 'vendor/kyc', lazy: () => import('../features/vendor/VendorKycPage'), hydrateFallbackElement: <VendorPageLoading /> },
       { path: '*', lazy: () => import('../pages/NotFoundPage') },

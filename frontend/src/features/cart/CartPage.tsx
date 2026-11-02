@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, LockKeyhole, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } from 'lucide-react'
 import { client } from '../../api/client'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { ProductImage } from '../../components/shared/ProductImage'
+import { ConfirmActionModal } from '../../components/ui/ConfirmActionModal'
 import { formatMoney } from '../../utils/format-money'
 import { getGuestSessionId } from '../../utils/guest-session'
 import { useDocumentTitle } from '../../utils/use-document-title'
@@ -17,6 +19,7 @@ type CartResponse = { cart: { id: string } | null; items: CartItem[] }
 export function CartPage() {
   useDocumentTitle('Shopping Cart')
   const queryClient = useQueryClient()
+  const [itemToRemove, setItemToRemove] = useState<{ id: string; name: string } | null>(null)
   const { isAuthenticated, user } = useAuth()
   const isCustomer = isAuthenticated && user?.role === 'customer'
   const cartUrl = isCustomer ? '/cart/mine' : '/cart'
@@ -46,11 +49,12 @@ export function CartPage() {
     <div className="cart-page-heading"><div><span className="cart-eyebrow">YOUR MARKETLY CART</span><h1>Shopping cart</h1><p>{cart.data.items.length} {cart.data.items.length === 1 ? 'item' : 'items'} saved for later</p></div><Link className="cart-back-link" to="/search"><ArrowLeft size={15} /> Continue shopping</Link></div>
     <div className="cart-layout"><div className="cart-items">{cart.data.items.map((item, index) => {
       const product = productQueries[index]?.data
-      if (productQueries[index]?.isError) return <CartItemFailure key={item.id} productId={item.product_id} onRemove={() => removeItem.mutate(item.id)} disabled={removeItem.isPending} />
+      if (productQueries[index]?.isError) return <CartItemFailure key={item.id} productId={item.product_id} onRemove={() => setItemToRemove({ id: item.id, name: 'this unavailable item' })} disabled={removeItem.isPending} />
       if (!product) return <CartItemSkeleton key={item.id} />
-      return <CartItemRow key={item.id} item={item} product={product} busy={updateItem.isPending || removeItem.isPending} onQuantity={quantity => updateItem.mutate({ id: item.id, quantity })} onRemove={() => removeItem.mutate(item.id)} />
+      return <CartItemRow key={item.id} item={item} product={product} busy={updateItem.isPending || removeItem.isPending} onQuantity={quantity => updateItem.mutate({ id: item.id, quantity })} onRemove={() => setItemToRemove({ id: item.id, name: product.name })} />
     })}</div><aside className="cart-summary"><h2>Order summary</h2><div><span>Subtotal</span><strong>{unresolved ? '—' : formatMoney(subtotal)}</strong></div><div><span>Shipping</span><strong className="cart-free">Free</strong></div><hr /><div className="cart-total"><span>Estimated total</span><strong>{unresolved ? '—' : formatMoney(subtotal)}</strong></div><Link className="button primary cart-checkout-button" to={isCustomer ? '/checkout' : '/login?next=%2Fcheckout'}>Proceed to checkout</Link><p className="cart-secure"><LockKeyhole size={14} /> Secure checkout</p><small>Taxes and discounts are calculated at checkout.</small></aside></div>
     <p className="cart-trust"><ShieldCheck size={16} /> Your items are reserved after checkout is complete.</p>
+    {itemToRemove && <ConfirmActionModal title="Remove item from cart?" description={`Remove ${itemToRemove.name} from your cart? You can add it again later.`} confirmLabel="Remove item" busy={removeItem.isPending} onCancel={() => setItemToRemove(null)} onConfirm={() => { removeItem.mutate(itemToRemove.id); setItemToRemove(null) }} />}
   </section>
 }
 

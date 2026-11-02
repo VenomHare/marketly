@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Box, CircleDollarSign, ClipboardList, CreditCard, FileCheck2, PackageCheck, RefreshCw } from 'lucide-react'
+import { ArrowRight, Box, CircleDollarSign, ClipboardList, CreditCard, FileCheck2, PackageCheck, RefreshCw, TicketPercent } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import { client } from '../../api/client'
 import type { AuthUser } from '../../api/auth-storage'
@@ -10,6 +10,7 @@ type VendorDashboard = {
   total_orders: number
   open_orders: number
   gross_sales_paise: number
+  commission_paise: number
   refund_paise: number
   net_earnings_paise: number
   pending_payout_paise: number
@@ -49,8 +50,8 @@ export function VendorDashboardPage() {
 
   return <section className="vendor-dashboard">
     <div className="vendor-dashboard-head">
-      <div><span className="vendor-eyebrow">SELLER SPACE</span><h1>Welcome, {me.data.vendor?.display_name || me.data.name}</h1><p>Your store overview and performance at a glance.</p></div>
-      <div className="vendor-dashboard-actions"><Link className="button neutral" to="/vendor/products">Manage products <ArrowRight size={15} /></Link><a className="button primary" href="/vendor/orders">View orders</a></div>
+      <div><h1>Welcome, {me.data.vendor?.display_name || me.data.name}</h1><p>Your store overview and performance at a glance.</p></div>
+      <div className="vendor-dashboard-actions"><Link className="button neutral" to="/vendor/products">Manage products <ArrowRight size={15} /></Link><Link className="button neutral" to="/vendor/coupons"><TicketPercent size={15} /> Coupons</Link><a className="button primary" href="/vendor/orders">View orders</a></div>
     </div>
     {kyc.data && kyc.data.status !== 'verified' && <KycNotice status={kyc.data.status} rejectionReason={kyc.data.rejection_reason} />}
     {kyc.isError && me.data.vendor?.kyc_status !== 'verified' && <KycNotice status={me.data.vendor?.kyc_status === 'rejected' ? 'rejected' : 'not_submitted'} />}
@@ -66,6 +67,7 @@ export function VendorDashboardPage() {
       <div className="vendor-finance-panel">
         <div className="finance-heading"><div><span className="vendor-eyebrow">PAYOUT SUMMARY</span><h2>Your earnings</h2></div><CreditCard size={21} /></div>
         <div className="finance-grid">
+          <FinanceMetric label="Marketplace commission" value={money(dashboard.data.commission_paise)} />
           <FinanceMetric label="Net earnings" value={money(dashboard.data.net_earnings_paise)} />
           <FinanceMetric label="Pending payout" value={money(dashboard.data.pending_payout_paise)} />
           <FinanceMetric label="Refunds" value={money(dashboard.data.refund_paise)} />

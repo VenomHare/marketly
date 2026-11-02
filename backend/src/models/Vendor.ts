@@ -9,6 +9,8 @@ export interface IVendor extends Document {
   postal_code: string;
   kyc_status: "pending" | "verified" | "rejected";
   commission_rate_bps: number;
+  razorpay_linked_account_id?: string;
+  payout_balance_paise: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -22,6 +24,8 @@ const VendorSchema = new Schema<IVendor>(
     postal_code: { type: String, required: true },
     kyc_status: { type: String, enum: ["pending", "verified", "rejected"], default: "pending" },
     commission_rate_bps: { type: Number, required: true },
+    razorpay_linked_account_id: { type: String, trim: true },
+    payout_balance_paise: { type: Number, default: 0 },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },

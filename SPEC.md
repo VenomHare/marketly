@@ -119,6 +119,8 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 **Coupon**
 - id: uuid (string)
 - code: string (unique)
+- vendor_id: uuid (optional; owner for vendor-created coupons)
+- product_ids: uuid[] (optional; absent means whole-order coupon)
 - discount_type: "percentage" | "fixed"
 - discount_value: number
 - max_discount_paise: number (optional)
@@ -383,7 +385,7 @@ Admin refund review routes require authentication and the admin role:
 
 - `GET /admin/refund-requests` - List up to 100 refund requests, oldest first
 - `GET /admin/refund-requests/{uuid}` - Get one refund request, including provider and review metadata
-- `POST /admin/refund-requests/{uuid}/approve` - Claim a requested refund and send the full refund to Razorpay; concurrent approvals are guarded
+- `POST /admin/refund-requests/{uuid}/approve` - Claim a requested refund and send the full payment amount to Razorpay; the vendor's settlement is charged only its net proceeds, commission is reversed, and already paid seller proceeds are collected as an offset on future releases
 - `POST /admin/refund-requests/{uuid}/reject` - Reject a request that is still `requested`
 
 Stripe webhook and vendor settlement routes are currently disabled and return `501`:
@@ -418,6 +420,7 @@ All routes in this section require the admin role.
 - `GET /admin/vendors/{uuid}/kyc/documents` - Get short-lived private URLs for the two KYC images
 - `PATCH /admin/vendors/{uuid}/verify` - Approve or reject KYC (rejection requires a reason)
 - `PATCH /admin/vendors/{uuid}/status` - Activate or suspend vendor
+- `PATCH /admin/vendors/{uuid}/commission` - Set commission rate in basis points for future delivered vendor orders
 
 #### Categories and coupons
 
@@ -427,12 +430,15 @@ All routes in this section require the admin role.
 - `POST /admin/coupons` - Create coupon
 - `PATCH /admin/coupons/{uuid}` - Update coupon
 - `DELETE /admin/coupons/{uuid}` - Deactivate or delete coupon
+- `GET /vendors/me/coupons`, `POST /vendors/me/coupons`, `DELETE /vendors/me/coupons/{uuid}` - Vendor-owned product coupons
 
 #### Orders and settlements
 
 - `GET /admin/orders` - List all orders
 - `PATCH /admin/orders/{uuid}/status` - Update permitted order status
 - `GET /admin/settlements` - List settlements
+- `POST /admin/settlements/reconcile` - Create missing pending settlements for delivered, paid vendor orders
+- `POST /admin/settlements/{uuid}/release` - Release the seller net through a Razorpay Route linked account; seller refunds lower settlement net, reverse Marketly commission, and create a future payout offset when the seller was already paid
 - `POST /admin/settlements/{uuid}/retry` - Retry a failed settlement
 
 #### Reviews

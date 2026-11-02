@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { Router } from "express";
 import mongoose from "mongoose";
 import { z } from "zod";
-import { Cart, CartItem, Order, OrderItem, Payment, PaymentRefundRequest, PaymentWebhookEvent, VendorOrder } from "../models";
+import { Cart, CartItem, Order, OrderItem, Payment, PaymentRefundRequest, PaymentWebhookEvent, Vendor, VendorOrder, VendorSettlement } from "../models";
 import { AuthRequest, authenticate, requireAdmin } from "../middleware/auth";
 import { acquireRedisMutex, RedisMutexTimeoutError } from "../utils/redisMutex";
 import { createRazorpayOrder, createRazorpayRefund, verifyRazorpayPaymentSignature, verifyRazorpayWebhookSignature } from "../utils/razorpay";
@@ -31,6 +31,39 @@ const createVendorOrdersForPaidOrder = async (orderId: string, session: mongoose
       { $setOnInsert: { order_id: orderId, vendor_id: vendorId, status: "placed" } },
       { upsert: true, session },
     );
+  }
+};
+const adjustSettlementsForRefund = async (orderId: string, session: mongoose.ClientSession) => {
+  const vendorOrders = await VendorOrder.find({ order_id: orderId }).select("_id vendor_id status").session(session).lean();
+  for (const vendorOrder of vendorOrders) {
+    let settlement = await VendorSettlement.findOne({ vendor_order_id: vendorOrder._id.toString() }).session(session);
+    // Delivered orders should have a settlement. Recover one here if an older or
+    // interrupted delivery flow left it missing, so an approved refund is still
+    // charged against the seller's proceeds.
+    if (!settlement && vendorOrder.status === "delivered") {
+      const [items, vendor] = await Promise.all([
+        OrderItem.find({ order_id: orderId, vendor_id: vendorOrder.vendor_id }).session(session).lean(),
+        Vendor.findById(vendorOrder.vendor_id).select("commission_rate_bps").session(session).lean(),
+      ]);
+      if (items.length && vendor) {
+        const grossPaise = items.reduce((sum, item) => sum + item.line_total_paise, 0);
+        const commissionPaise = Math.floor(grossPaise * vendor.commission_rate_bps / 10_000);
+        await VendorSettlement.updateOne(
+          { vendor_order_id: vendorOrder._id.toString() },
+          { $setOnInsert: { vendor_id: vendorOrder.vendor_id, gross_paise: grossPaise, commission_paise: commissionPaise, refund_paise: 0, commission_reversed_paise: 0, net_paise: grossPaise - commissionPaise, status: "pending" } },
+          { upsert: true, session },
+        );
+        settlement = await VendorSettlement.findOne({ vendor_order_id: vendorOrder._id.toString() }).session(session);
+      }
+    }
+    if (!settlement) continue;
+    const sellerRefund = Math.max(0, settlement.net_paise);
+    const commissionReversed = Math.max(0, settlement.commission_paise - (settlement.commission_reversed_paise ?? 0));
+    if (settlement.status === "paid" && sellerRefund > 0) await Vendor.updateOne({ _id: settlement.vendor_id }, { $inc: { payout_balance_paise: -sellerRefund } }, { session });
+    settlement.refund_paise += sellerRefund;
+    settlement.commission_reversed_paise = (settlement.commission_reversed_paise ?? 0) + commissionReversed;
+    settlement.net_paise = 0;
+    await settlement.save({ session });
   }
 };
 
@@ -258,6 +291,11 @@ paymentsRouter.post("/admin/refund-requests/:uuid/approve", authenticate, requir
       await PaymentRefundRequest.updateOne({ _id: request.id, status: "processing" }, { $set: { status: "failed" } });
       return res.status(409).json({ message: "Payment is no longer eligible for a refund" });
     }
+    const vendorOrders = await VendorOrder.find({ order_id: order.id }).select("_id").lean();
+    if (await VendorSettlement.exists({ vendor_order_id: { $in: vendorOrders.map(item => item._id.toString()) }, status: "processing" })) {
+      await PaymentRefundRequest.updateOne({ _id: request.id, status: "processing" }, { $set: { status: "requested" }, $unset: { reviewed_by: 1, reviewed_at: 1 } });
+      return res.status(409).json({ message: "A seller transfer for this order is still processing. Review the refund again when it completes." });
+    }
     const razorpayRefund = await createRazorpayRefund(payment.provider_payment_id!, request.amount_paise, request.id);
     if (razorpayRefund.amount !== request.amount_paise || typeof razorpayRefund.id !== "string" || !["processed", "pending"].includes(razorpayRefund.status)) throw new Error("Razorpay refund response did not match the request");
     const session = await mongoose.startSession();
@@ -269,6 +307,8 @@ paymentsRouter.post("/admin/refund-requests/:uuid/approve", authenticate, requir
           const paymentUpdate = await Payment.updateOne({ _id: payment.id, status: "success" }, { $set: { status: "refunded", updated_at: new Date() } }, { session });
           const orderUpdate = await Order.updateOne({ _id: order.id, payment_status: "paid" }, { $set: { payment_status: "refunded", updated_at: new Date() } }, { session });
           if (paymentUpdate.modifiedCount !== 1 || orderUpdate.modifiedCount !== 1) throw new Error("Payment changed during refund processing");
+          await adjustSettlementsForRefund(order.id, session);
+          await PaymentRefundRequest.updateOne({ _id: request.id }, { $set: { settlement_adjusted: true } }, { session });
         }
       });
     } finally { await session.endSession(); }
@@ -297,7 +337,7 @@ paymentsRouter.post("/webhooks/razorpay", async (req, res) => {
   const rawBody = (req as typeof req & { rawBody?: Buffer }).rawBody;
   const signature = req.header("x-razorpay-signature");
   if (!rawBody || !verifyRazorpayWebhookSignature(rawBody, signature)) return res.status(400).json({ message: "Invalid webhook signature" });
-  const event = req.body as { event?: unknown; payload?: { payment?: { entity?: { id?: string; order_id?: string } }; refund?: { entity?: { id?: string; payment_id?: string; status?: string } } }; id?: string };
+  const event = req.body as { event?: unknown; payload?: { payment?: { entity?: { id?: string; order_id?: string } }; refund?: { entity?: { id?: string; payment_id?: string; status?: string } }; transfer?: { entity?: { id?: string; status?: string } } }; id?: string };
   if (typeof event?.event !== "string") return res.status(400).json({ message: "Invalid webhook event" });
   const eventId = typeof event.id === "string" && event.id ? event.id : createHash("sha256").update(rawBody).digest("hex");
   const session = await mongoose.startSession();
@@ -321,6 +361,36 @@ paymentsRouter.post("/webhooks/razorpay", async (req, res) => {
             }
           }
         }
+      }
+      if (event.event === "refund.processed") {
+        const refund = event.payload?.refund?.entity;
+        if (refund?.id && refund.payment_id) {
+          const payment = await Payment.findOne({ provider: "razorpay", provider_payment_id: refund.payment_id }).session(session);
+          const request = await PaymentRefundRequest.findOne({ provider_refund_id: refund.id, status: "processing" }).session(session);
+          if (payment && request) {
+            request.status = "refunded";
+            if (!request.settlement_adjusted) { await adjustSettlementsForRefund(request.order_id, session); request.settlement_adjusted = true; }
+            await request.save({ session });
+            payment.status = "refunded"; payment.updated_at = new Date(); await payment.save({ session });
+            await Order.updateOne({ _id: request.order_id, payment_status: "paid" }, { $set: { payment_status: "refunded", updated_at: new Date() } }, { session });
+          }
+        }
+      }
+      if (event.event === "transfer.processed" || event.event === "transfer.failed") {
+        const transfer = event.payload?.transfer?.entity;
+        if (transfer?.id) {
+          const settlement = await VendorSettlement.findOne({ provider_transfer_id: transfer.id }).session(session);
+          if (settlement && settlement.status === "processing") {
+            settlement.status = event.event === "transfer.processed" ? "paid" : "failed";
+            if (settlement.status === "paid") settlement.settled_at = new Date();
+            else if (settlement.payout_balance_offset_paise > 0) { await Vendor.updateOne({ _id: settlement.vendor_id }, { $inc: { payout_balance_paise: -settlement.payout_balance_offset_paise } }, { session }); settlement.payout_balance_offset_paise = 0; }
+            await settlement.save({ session });
+          }
+        }
+      }
+      if (event.event === "refund.failed") {
+        const refund = event.payload?.refund?.entity;
+        if (refund?.id) await PaymentRefundRequest.updateOne({ provider_refund_id: refund.id, status: "processing" }, { $set: { status: "failed" } }, { session });
       }
       await PaymentWebhookEvent.updateOne({ provider: "razorpay", provider_event_id: eventId }, { $set: { status: "processed", processed_at: new Date() } }, { session });
     });

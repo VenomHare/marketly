@@ -43,7 +43,7 @@ Public. Path `uuid` as above. Query: `page` integer ≥1 default `1`; `limit` in
 
 ## `GET /vendors/me/dashboard`
 
-Vendor auth and active account. No inputs. **Response:** `200` `{active_products,total_orders,open_orders,gross_sales_paise,refund_paise,net_earnings_paise,pending_payout_paise}`; `401`, `403`, `500 {message:"Failed to fetch vendor dashboard"}`.
+Vendor auth and active account. No inputs. **Response:** `200` `{active_products,total_orders,open_orders,gross_sales_paise,commission_paise,refund_paise,net_earnings_paise,pending_payout_paise}`; `401`, `403`, `500 {message:"Failed to fetch vendor dashboard"}`. Gross, commission, refunds, net earnings, and pending payout totals are summed from settlement records.
 
 ## `GET /vendors/me/orders`
 
@@ -52,6 +52,8 @@ Vendor auth and active account. Query `page` integer ≥1 (default 1), `limit` i
 ## `GET /vendors/me/settlements`
 
 Vendor auth and active account. Same pagination query as vendor orders. `200` `{settlements:[{id,vendor_order_id,gross_paise,commission_paise,refund_paise,net_paise,status,created_at,settled_at}],pagination:{page,limit,total,pages}}`. Provider transfer identifiers are not returned. Errors: `400`, `401`, `403`, `500 {message:"Failed to fetch vendor settlements"}`.
+
+A pending settlement is created transactionally when the vendor order moves to `delivered`. Gross is the sum of that vendor's discounted order item totals. Commission is `floor(gross_paise * commission_rate_bps / 10000)` using the vendor rate at delivery; net is gross minus commission. The settlement is unique per vendor order. Pending settlements count toward the vendor's pending payout, but this application does not initiate vendor transfers.
 
 Vendor route tests cover ownership scoping, pagination, private field filtering, and exclusion of KYC document keys from responses.
 

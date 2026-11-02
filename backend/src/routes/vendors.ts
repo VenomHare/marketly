@@ -353,24 +353,28 @@ vendorsRouter.get("/vendors/me/dashboard", authenticate, requireVendor, async (r
       Product.countDocuments({ vendor_id: vendorId, status: "active" }),
       VendorOrder.countDocuments({ vendor_id: vendorId, order_id: { $in: eligibleOrderIds } }),
       VendorOrder.countDocuments({ vendor_id: vendorId, order_id: { $in: eligibleOrderIds }, status: { $in: ["placed", "packed", "shipped", "in_transit"] } }),
-      VendorSettlement.find({ vendor_id: vendorId }).select("gross_paise refund_paise net_paise status"),
+      VendorSettlement.find({ vendor_id: vendorId }).select("gross_paise commission_paise commission_reversed_paise refund_paise net_paise status"),
     ]);
 
     const totals = settlements.reduce((result, settlement) => {
       result.grossSales += settlement.gross_paise;
+      result.commission += settlement.commission_paise - (settlement.commission_reversed_paise ?? 0);
       result.refunds += settlement.refund_paise;
       result.netEarnings += settlement.net_paise;
-      if (settlement.status === "pending" || settlement.status === "processing") {
+      if (["pending", "processing", "failed"].includes(settlement.status)) {
         result.pendingPayout += settlement.net_paise;
       }
       return result;
-    }, { grossSales: 0, refunds: 0, netEarnings: 0, pendingPayout: 0 });
+    }, { grossSales: 0, commission: 0, refunds: 0, netEarnings: 0, pendingPayout: 0 });
+    const payoutBalance = await Vendor.findById(vendorId).select("payout_balance_paise").lean();
+    totals.pendingPayout = Math.max(0, totals.pendingPayout + (payoutBalance?.payout_balance_paise ?? 0));
 
     return res.json({
       active_products: activeProducts,
       total_orders: totalOrders,
       open_orders: openOrders,
       gross_sales_paise: totals.grossSales,
+      commission_paise: totals.commission,
       refund_paise: totals.refunds,
       net_earnings_paise: totals.netEarnings,
       pending_payout_paise: totals.pendingPayout,
@@ -463,7 +467,7 @@ vendorsRouter.get("/vendors/me/settlements", authenticate, requireVendor, async 
         id: settlement.id,
         vendor_order_id: settlement.vendor_order_id,
         gross_paise: settlement.gross_paise,
-        commission_paise: settlement.commission_paise,
+        commission_paise: settlement.commission_paise - (settlement.commission_reversed_paise ?? 0),
         refund_paise: settlement.refund_paise,
         net_paise: settlement.net_paise,
         status: settlement.status,
