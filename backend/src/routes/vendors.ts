@@ -8,6 +8,8 @@ import {
   vendorProfileUpdateSchema,
   vendorProductsQuerySchema,
 } from "../validators/vendors";
+import { createSettlementInvoicePdf } from "../utils/pdf.js";
+import { encryptBankAccount } from "../utils/bankDetails.js";
 
 const vendorsRouter = Router();
 
@@ -31,9 +33,12 @@ vendorsRouter.post("/vendors", authenticate, async (req: AuthRequest, res) => {
       return res.status(409).json({ message: "Vendor application already exists" });
     }
 
+    const { bank_account_number, ...application } = validation.data;
+    const encryptedBankAccount = encryptBankAccount(bank_account_number);
     const vendor = await Vendor.create({
       user_id: user.id,
-      ...validation.data,
+      ...application,
+      ...encryptedBankAccount,
       kyc_status: "pending",
       commission_rate_bps: 0,
     });
@@ -49,6 +54,11 @@ vendorsRouter.post("/vendors", authenticate, async (req: AuthRequest, res) => {
       postal_code: vendor.postal_code,
       kyc_status: vendor.kyc_status,
       commission_rate_bps: vendor.commission_rate_bps,
+      bank_account_holder: vendor.bank_account_holder,
+      bank_account_last4: vendor.bank_account_last4,
+      bank_ifsc: vendor.bank_ifsc,
+      bank_name: vendor.bank_name,
+      bank_account_type: vendor.bank_account_type,
       created_at: vendor.created_at,
       updated_at: vendor.updated_at,
     });
@@ -163,6 +173,11 @@ vendorsRouter.get("/vendors/me", authenticate, requireVendor, async (req: AuthRe
       postal_code: vendor.postal_code,
       kyc_status: vendor.kyc_status,
       commission_rate_bps: vendor.commission_rate_bps,
+      bank_account_holder: vendor.bank_account_holder,
+      bank_account_last4: vendor.bank_account_last4,
+      bank_ifsc: vendor.bank_ifsc,
+      bank_name: vendor.bank_name,
+      bank_account_type: vendor.bank_account_type,
       created_at: vendor.created_at,
       updated_at: vendor.updated_at,
     });
@@ -471,6 +486,8 @@ vendorsRouter.get("/vendors/me/settlements", authenticate, requireVendor, async 
         refund_paise: settlement.refund_paise,
         net_paise: settlement.net_paise,
         status: settlement.status,
+        simulated_payout: settlement.simulated_payout ?? false,
+        payout_reference: settlement.provider_transfer_id ?? null,
         created_at: settlement.created_at,
         settled_at: settlement.settled_at,
       })),
@@ -479,6 +496,48 @@ vendorsRouter.get("/vendors/me/settlements", authenticate, requireVendor, async 
   } catch (error) {
     console.error("Get vendor settlements error:", error);
     return res.status(500).json({ message: "Failed to fetch vendor settlements" });
+  }
+});
+
+vendorsRouter.get("/vendors/me/settlements/:uuid/invoice.pdf", authenticate, requireVendor, async (req: AuthRequest, res) => {
+  if (!vendorIdSchema.safeParse(req.params.uuid).success) return res.status(400).json({ message: "Invalid settlement id" });
+  try {
+    const [vendor, settlement] = await Promise.all([
+      Vendor.findById(req.vendor!.id).lean(),
+      VendorSettlement.findOne({ _id: req.params.uuid, vendor_id: req.vendor!.id }).lean(),
+    ]);
+    if (!vendor || !settlement) return res.status(404).json({ message: "Settlement not found" });
+    const vendorOrder = await VendorOrder.findOne({ _id: settlement.vendor_order_id, vendor_id: vendor._id.toString() }).lean();
+    if (!vendorOrder) return res.status(404).json({ message: "Settlement order not found" });
+    const items = await OrderItem.find({ order_id: vendorOrder.order_id, vendor_id: vendor._id.toString() }).sort({ _id: 1 }).lean();
+    const settlementId = settlement._id.toString();
+    const pdf = await createSettlementInvoicePdf({
+      invoiceNumber: `ML-S-${settlementId.slice(-8).toUpperCase()}`,
+      settlementId,
+      vendorOrderId: vendorOrder._id.toString(),
+      orderId: vendorOrder.order_id,
+      date: new Date(settlement.settled_at ?? settlement.created_at),
+      status: settlement.status,
+      vendorName: vendor.display_name,
+      vendorId: vendor._id.toString(),
+      businessAddress: [vendor.address, vendor.postal_code].filter(Boolean).join(", "),
+      bankDetails: [vendor.bank_account_holder, vendor.bank_name, vendor.bank_account_type, vendor.bank_account_last4 ? `ending ${vendor.bank_account_last4}` : undefined, vendor.bank_ifsc ? `IFSC ${vendor.bank_ifsc}` : undefined].filter(Boolean).join(" · "),
+      items,
+      grossPaise: settlement.gross_paise,
+      commissionPaise: settlement.commission_paise,
+      commissionReversedPaise: settlement.commission_reversed_paise ?? 0,
+      refundPaise: settlement.refund_paise,
+      netPaise: settlement.net_paise,
+      transferReference: settlement.provider_transfer_id,
+      simulatedPayout: settlement.simulated_payout ?? false,
+      releasedAt: settlement.settled_at ? new Date(settlement.settled_at) : undefined,
+    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=marketly-settlement-${settlement._id.toString().slice(-8)}.pdf`);
+    return res.send(pdf);
+  } catch (error) {
+    console.error("Create vendor settlement invoice error:", error);
+    return res.status(500).json({ message: "Failed to create settlement invoice" });
   }
 });
 

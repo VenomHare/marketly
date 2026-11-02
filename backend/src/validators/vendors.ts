@@ -12,6 +12,19 @@ export const vendorApplicationSchema = z.object({
   display_name: z.string().trim().min(1),
   address: z.string().trim().min(1),
   postal_code: z.string().trim().min(1),
+  bank_account_holder: z.string().trim().min(2).max(120),
+  bank_account_number: z.string().regex(/^\d{8,18}$/),
+  bank_ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/),
+  bank_name: z.string().trim().min(2).max(120),
+  bank_account_type: z.enum(["savings", "current"]),
+}).strict();
+
+export const vendorBankAccountSchema = z.object({
+  bank_account_holder: z.string().trim().min(2).max(120),
+  bank_account_number: z.string().regex(/^\d{8,18}$/),
+  bank_ifsc: z.string().trim().toUpperCase().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/),
+  bank_name: z.string().trim().min(2).max(120),
+  bank_account_type: z.enum(["savings", "current"]),
 }).strict();
 
 export const vendorProfileUpdateSchema = z.object({

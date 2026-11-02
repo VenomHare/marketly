@@ -9,10 +9,11 @@ import {
 import { AuthRequest, authenticate, requireAdmin } from "../middleware/auth";
 import { updateUserStatusSchema } from "../validators/auth";
 import { vendorKycDecisionSchema } from "../validators/vendors";
+import { vendorBankAccountSchema } from "../validators/vendors";
 import { elasticsearchRequest, indexProduct } from "../utils/elasticsearch";
 import { createPresignedDownloadUrl } from "../utils/objectStorage";
-import { createRazorpayTransfer } from "../utils/razorpay";
 import { acquireRedisMutex, RedisMutexTimeoutError } from "../utils/redisMutex";
+import { encryptBankAccount } from "../utils/bankDetails";
 
 const adminRouter = Router();
 // Protect only this router's admin namespace; the router is mounted at /api/v1,
@@ -66,7 +67,7 @@ const createAdminSchema = z.object({ name: z.string().trim().min(2).max(100), em
 const dateRangeSchema = z.object({ from: z.iso.datetime().optional(), to: z.iso.datetime().optional() }).strict().refine((v) => !v.from || !v.to || new Date(v.from) <= new Date(v.to));
 const validId = (value: unknown): value is string => typeof value === "string" && idSchema.safeParse(value).success;
 const safeUser = (user: any) => ({ id: user._id?.toString() ?? user.id, name: user.name, email: user.email, role: user.role, status: user.status, created_at: user.created_at, updated_at: user.updated_at });
-const safeVendor = (vendor: any) => ({ id: vendor._id?.toString() ?? vendor.id, user_id: vendor.user_id, name: vendor.name, display_name: vendor.display_name, address: vendor.address, postal_code: vendor.postal_code, kyc_status: vendor.kyc_status, commission_rate_bps: vendor.commission_rate_bps, razorpay_linked_account_id: vendor.razorpay_linked_account_id ?? null, created_at: vendor.created_at, updated_at: vendor.updated_at });
+const safeVendor = (vendor: any) => ({ id: vendor._id?.toString() ?? vendor.id, user_id: vendor.user_id, name: vendor.name, display_name: vendor.display_name, address: vendor.address, postal_code: vendor.postal_code, kyc_status: vendor.kyc_status, commission_rate_bps: vendor.commission_rate_bps, razorpay_linked_account_id: vendor.razorpay_linked_account_id ?? null, bank_account_holder: vendor.bank_account_holder ?? null, bank_account_last4: vendor.bank_account_last4 ?? null, bank_ifsc: vendor.bank_ifsc ?? null, bank_name: vendor.bank_name ?? null, bank_account_type: vendor.bank_account_type ?? null, created_at: vendor.created_at, updated_at: vendor.updated_at });
 const safeCoupon = (c: any) => ({ id: c._id?.toString() ?? c.id, code: c.code, ...(c.product_ids?.length ? { product_ids: c.product_ids } : {}), discount_type: c.discount_type, discount_value: c.discount_value, ...(c.max_discount_paise !== undefined ? { max_discount_paise: c.max_discount_paise } : {}), ...(c.min_order_paise !== undefined ? { min_order_paise: c.min_order_paise } : {}), ...(c.usage_limit !== undefined ? { usage_limit: c.usage_limit } : {}), starts_at: c.starts_at, expires_at: c.expires_at, is_active: c.is_active });
 const fail = (res: any, label: string, error: unknown) => { console.error(`${label}:`, error); return res.status(500).json({ message: `Failed to ${label.toLowerCase()}` }); };
 async function audit(req: AuthRequest, action: string, entity_type: string, entity_id: string) {
@@ -264,7 +265,44 @@ adminRouter.patch("/admin/orders/:uuid/status", async (req: AuthRequest, res) =>
 
 adminRouter.get("/admin/settlements", async (req, res) => {
   const q = pageSchema.extend({ status: z.enum(["pending", "processing", "paid", "failed"]).optional() }).strict().safeParse(req.query); if (!q.success) return res.status(400).json({ message: "Invalid parameters" });
-  try { const filter = q.data.status ? { status: q.data.status } : {}; const [items, total] = await Promise.all([VendorSettlement.find(filter).sort({ created_at: -1, _id: -1 }).skip((q.data.page - 1) * q.data.limit).limit(q.data.limit).lean(), VendorSettlement.countDocuments(filter)]); const vendorIds = [...new Set(items.map(s => s.vendor_id))]; const vendors = await Vendor.find({ _id: { $in: vendorIds } }).select("display_name razorpay_linked_account_id payout_balance_paise").lean(); const vendorMap = new Map(vendors.map(v => [v._id.toString(), v])); const vendorOrders = await VendorOrder.find({ _id: { $in: items.map(s => s.vendor_order_id) } }).select("_id order_id").lean(); const orderIds = [...new Set(vendorOrders.map(v => v.order_id))]; const payments = await Payment.find({ order_id: { $in: orderIds }, status: { $in: ["success", "refunded"] } }).select("order_id amount_paise provider_payment_id").lean(); const voMap = new Map(vendorOrders.map(v => [v._id.toString(), v])); const paymentMap = new Map(payments.map(p => [p.order_id, p])); return res.json({ settlements: items.map((s) => { const vendor = vendorMap.get(s.vendor_id); const vo = voMap.get(s.vendor_order_id); const payment = vo ? paymentMap.get(vo.order_id) : undefined; return { id: s._id.toString(), vendor_order_id: s.vendor_order_id, vendor_id: s.vendor_id, vendor_name: vendor?.display_name ?? "Vendor", razorpay_linked_account_id: vendor?.razorpay_linked_account_id ?? null, vendor_payout_balance_paise: vendor?.payout_balance_paise ?? 0, provider_payment_id: payment?.provider_payment_id ?? null, payment_amount_paise: payment?.amount_paise ?? null, gross_paise: s.gross_paise, commission_paise: s.commission_paise, commission_reversed_paise: s.commission_reversed_paise ?? 0, refund_paise: s.refund_paise, net_paise: s.net_paise, provider_transfer_id: s.provider_transfer_id ?? null, status: s.status, created_at: s.created_at, settled_at: s.settled_at }; } ), pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } }); }
+  try {
+    const [all, vendors] = await Promise.all([
+      VendorSettlement.find().sort({ created_at: -1, _id: -1 }).lean(),
+      Vendor.find().select("display_name payout_balance_paise bank_account_holder bank_account_last4 bank_ifsc bank_name bank_account_type").lean(),
+    ]);
+    const vendorMap = new Map(vendors.map((vendor) => [vendor._id.toString(), vendor]));
+    const vendorOrders = await VendorOrder.find({ _id: { $in: all.map((item) => item.vendor_order_id) } }).select("_id order_id").lean();
+    const orderMap = new Map(vendorOrders.map((item) => [item._id.toString(), item.order_id]));
+    const payments = await Payment.find({ order_id: { $in: vendorOrders.map((item) => item.order_id) }, status: { $in: ["success", "refunded"] } }).select("order_id amount_paise provider_payment_id").lean();
+    const paymentMap = new Map(payments.map((payment) => [payment.order_id, payment]));
+    const grouped = new Map<string, any>();
+    for (const item of all) {
+      const vendorId = item.vendor_id;
+      const vendor = vendorMap.get(vendorId);
+      const orderId = orderMap.get(item.vendor_order_id);
+      const payment = orderId ? paymentMap.get(orderId) : undefined;
+      let group = grouped.get(vendorId);
+      if (!group) {
+        group = { id: vendorId, vendor_id: vendorId, vendor_name: vendor?.display_name ?? "Vendor", bank_account_holder: vendor?.bank_account_holder ?? null, bank_account_last4: vendor?.bank_account_last4 ?? null, bank_ifsc: vendor?.bank_ifsc ?? null, bank_name: vendor?.bank_name ?? null, bank_account_type: vendor?.bank_account_type ?? null, vendor_payout_balance_paise: vendor?.payout_balance_paise ?? 0, gross_paise: 0, commission_paise: 0, commission_reversed_paise: 0, refund_paise: 0, net_paise: 0, lifetime_net_paise: 0, status: "paid", entries: [], created_at: item.created_at };
+        grouped.set(vendorId, group);
+      }
+      group.gross_paise += item.gross_paise;
+      group.commission_paise += item.commission_paise;
+      group.commission_reversed_paise += item.commission_reversed_paise ?? 0;
+      group.refund_paise += item.refund_paise;
+      group.lifetime_net_paise += item.net_paise;
+      if (item.status !== "paid") group.net_paise += item.net_paise;
+      group.created_at = item.created_at < group.created_at ? item.created_at : group.created_at;
+      group.entries.push({ id: item._id.toString(), vendor_order_id: item.vendor_order_id, order_id: orderId ?? "", net_paise: item.net_paise, status: item.status, simulated_payout: item.simulated_payout ?? false, provider_transfer_id: item.provider_transfer_id ?? null, provider_payment_id: payment?.provider_payment_id ?? null, payment_amount_paise: payment?.amount_paise ?? null, created_at: item.created_at, settled_at: item.settled_at });
+    }
+    let result = [...grouped.values()];
+    if (q.data.status) result = result.filter((group) => group.entries.some((entry: any) => entry.status === q.data.status));
+    for (const group of result) group.status = group.entries.some((entry: any) => entry.status === "processing") ? "processing" : group.entries.some((entry: any) => ["pending", "failed"].includes(entry.status) && entry.net_paise > 0) ? "pending" : group.entries.some((entry: any) => entry.status === "failed") ? "failed" : "paid";
+    result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const total = result.length;
+    const settlements = result.slice((q.data.page - 1) * q.data.limit, q.data.page * q.data.limit);
+    return res.json({ settlements, pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } });
+  }
   catch (e) { return fail(res, "fetch settlements", e); }
 });
 adminRouter.patch("/admin/vendors/:uuid/razorpay-account", async (req: AuthRequest, res) => {
@@ -273,6 +311,20 @@ adminRouter.patch("/admin/vendors/:uuid/razorpay-account", async (req: AuthReque
   if (!parsed.success) return res.status(400).json({ message: "Enter a valid Razorpay Route linked account ID" });
   try { const update = parsed.data.razorpay_linked_account_id ? { $set: { razorpay_linked_account_id: parsed.data.razorpay_linked_account_id } } : { $unset: { razorpay_linked_account_id: 1 } }; const vendor = await Vendor.findByIdAndUpdate(req.params.uuid, update, { new: true, runValidators: true }); if (!vendor) return res.status(404).json({ message: "Vendor not found" }); await audit(req, "vendor.razorpay_account", "vendor", vendor.id); return res.json(safeVendor(vendor)); }
   catch (e) { return fail(res, "update vendor payout account", e); }
+});
+adminRouter.patch("/admin/vendors/:uuid/bank-account", async (req: AuthRequest, res) => {
+  if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid vendor id" });
+  const parsed = vendorBankAccountSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ message: "Enter valid bank account details" });
+  try {
+    const { bank_account_number, ...bankDetails } = parsed.data;
+    const vendor = await Vendor.findByIdAndUpdate(req.params.uuid, {
+      $set: { ...bankDetails, ...encryptBankAccount(bank_account_number), updated_at: new Date() },
+    }, { new: true, runValidators: true });
+    if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    await audit(req, "vendor.bank_account.update", "vendor", vendor.id);
+    return res.json(safeVendor(vendor));
+  } catch (e) { return fail(res, "update vendor bank account", e); }
 });
 adminRouter.post("/admin/settlements/reconcile", async (req: AuthRequest, res) => {
   if (!z.object({ confirm: z.literal(true) }).strict().safeParse(req.body).success) return res.status(400).json({ message: "Explicit confirmation is required" });
@@ -324,31 +376,30 @@ adminRouter.post("/admin/settlements/:uuid/release", async (req: AuthRequest, re
     if (!["pending", "failed"].includes(s.status)) return res.status(409).json({ message: "Only pending or failed settlements can be released" });
     if (await VendorSettlement.exists({ vendor_id: s.vendor_id, status: "processing", _id: { $ne: s._id } })) return res.status(409).json({ message: "Another transfer for this seller is still processing" });
     if (s.net_paise <= 0) return res.status(409).json({ message: "There is no seller amount to release" });
-    const vendor = await Vendor.findById(s.vendor_id).select("razorpay_linked_account_id payout_balance_paise").lean();
+    const vendor = await Vendor.findById(s.vendor_id).select("payout_balance_paise bank_account_holder bank_account_number_encrypted bank_account_last4 bank_ifsc bank_name bank_account_type").lean();
     if (!vendor) return res.status(404).json({ message: "Vendor not found" });
+    if (!vendor.bank_account_number_encrypted || !vendor.bank_account_last4 || !vendor.bank_ifsc || !vendor.bank_account_holder) return res.status(409).json({ message: "Add complete vendor bank details before recording a payout" });
     const vo = await VendorOrder.findById(s.vendor_order_id).select("order_id").lean();
-    const payment = vo ? await Payment.findOne({ order_id: vo.order_id, status: "success", provider: "razorpay", provider_payment_id: { $exists: true } }).lean() : null;
-    if (!payment?.provider_payment_id) return res.status(409).json({ message: "A successful Razorpay payment is required" });
-    if (await PaymentRefundRequest.exists({ order_id: vo!.order_id, status: { $in: ["requested", "processing"] } })) return res.status(409).json({ message: "A refund request is active for this order" });
+    if (!vo) return res.status(404).json({ message: "Vendor order not found" });
+    if (await PaymentRefundRequest.exists({ order_id: vo.order_id, status: { $in: ["requested", "processing"] } })) return res.status(409).json({ message: "A refund request is active for this order" });
     const payoutAmount = Math.max(0, s.net_paise + (vendor.payout_balance_paise ?? 0));
     if (payoutAmount <= 0) {
       const offset = Math.min(s.net_paise, Math.max(0, -(vendor.payout_balance_paise ?? 0)));
       if (offset <= 0) return res.status(409).json({ message: "There is no seller amount to release" });
-      s.payout_balance_offset_paise = offset; s.status = "paid"; s.settled_at = new Date(); await s.save();
+      s.payout_balance_offset_paise = offset; s.status = "paid"; s.simulated_payout = true; s.provider_transfer_id = `SIM-${Date.now()}-${s.id.slice(-6)}`; s.settled_at = new Date(); await s.save();
       await Vendor.updateOne({ _id: s.vendor_id }, { $inc: { payout_balance_paise: offset } });
-      await audit(req, "settlement.offset", "settlement", s.id);
-      return res.json({ id: s.id, status: s.status, amount_paise: 0, offset_paise: offset });
+      await audit(req, "settlement.simulated_release", "settlement", s.id);
+      return res.json({ id: s.id, status: s.status, simulated: true, payout_reference: s.provider_transfer_id, amount_paise: 0, offset_paise: offset });
     }
-    if (!vendor.razorpay_linked_account_id) return res.status(409).json({ message: "Configure a Razorpay Route linked account for this vendor first" });
-    s.status = "processing"; await s.save();
-    let transfer: Awaited<ReturnType<typeof createRazorpayTransfer>>;
-    try {
-      transfer = await createRazorpayTransfer(payment.provider_payment_id, vendor.razorpay_linked_account_id, payoutAmount, s.id);
-    } catch (error) { s.status = "failed"; await s.save(); throw error; }
-    s.provider_transfer_id = transfer.id; s.status = transfer.status === "processed" ? "paid" : transfer.status === "failed" ? "failed" : "processing"; s.payout_balance_offset_paise = s.status === "failed" ? 0 : Math.min(s.net_paise - payoutAmount, Math.max(0, -(vendor.payout_balance_paise ?? 0))); if (s.status === "paid") s.settled_at = new Date(); await s.save();
+    s.provider_transfer_id = `SIM-${Date.now()}-${s.id.slice(-6)}`;
+    s.status = "paid";
+    s.simulated_payout = true;
+    s.payout_balance_offset_paise = Math.min(s.net_paise - payoutAmount, Math.max(0, -(vendor.payout_balance_paise ?? 0)));
+    s.settled_at = new Date();
+    await s.save();
     if (s.payout_balance_offset_paise > 0) await Vendor.updateOne({ _id: s.vendor_id }, { $inc: { payout_balance_paise: s.payout_balance_offset_paise } });
-    await audit(req, "settlement.release", "settlement", s.id);
-    return res.json({ id: s.id, status: s.status, provider_transfer_id: s.provider_transfer_id, amount_paise: payoutAmount });
+    await audit(req, "settlement.simulated_release", "settlement", s.id);
+    return res.json({ id: s.id, status: s.status, simulated: true, payout_reference: s.provider_transfer_id, destination: `****${vendor.bank_account_last4}`, bank_name: vendor.bank_name, account_holder: vendor.bank_account_holder, ifsc: vendor.bank_ifsc, amount_paise: payoutAmount });
   } catch (e) { return fail(res, "release settlement", e); }
   finally { await release(); }
 });

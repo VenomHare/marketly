@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Box, CircleDollarSign, ClipboardList, CreditCard, FileCheck2, PackageCheck, RefreshCw, TicketPercent } from 'lucide-react'
+import { ArrowRight, Box, ChevronLeft, ChevronRight, CircleDollarSign, ClipboardList, CreditCard, Download, FileCheck2, PackageCheck, RefreshCw, TicketPercent } from 'lucide-react'
 import { Link, Navigate } from 'react-router-dom'
 import { client } from '../../api/client'
 import type { AuthUser } from '../../api/auth-storage'
@@ -17,6 +18,8 @@ type VendorDashboard = {
 }
 
 type VendorKycStatus = { status: 'not_submitted' | 'pending' | 'rejected' | 'verified'; rejection_reason?: string }
+type VendorSettlement = { id: string; vendor_order_id: string; gross_paise: number; commission_paise: number; refund_paise: number; net_paise: number; status: string; simulated_payout?: boolean; created_at: string; settled_at?: string }
+type VendorSettlementsResponse = { settlements: VendorSettlement[]; pagination: { page: number; limit: number; total: number; pages: number } }
 
 const money = (paise: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(paise / 100)
 
@@ -30,6 +33,7 @@ export function VendorDashboardPage() {
     retry: false,
   })
   const isVendor = me.data?.role === 'vendor' && me.data.status === 'active' && Boolean(me.data.vendor)
+  const [settlementPage, setSettlementPage] = useState(1)
   const kyc = useQuery({
     queryKey: ['vendor', 'kyc', me.data?.id],
     queryFn: async () => (await client.get<VendorKycStatus>('/vendors/me/kyc')).data,
@@ -44,6 +48,20 @@ export function VendorDashboardPage() {
     staleTime: 30_000,
     retry: 1,
   })
+  const settlements = useQuery({
+    queryKey: ['vendor', 'settlements', me.data?.id, settlementPage],
+    queryFn: async () => (await client.get<VendorSettlementsResponse>(`/vendors/me/settlements?page=${settlementPage}&limit=20`)).data,
+    enabled: isVendor,
+    staleTime: 30_000,
+  })
+
+  async function downloadSettlement(settlement: VendorSettlement) {
+    const { data } = await client.get<Blob>(`/vendors/me/settlements/${settlement.id}/invoice.pdf`, { responseType: 'blob' })
+    const url = URL.createObjectURL(data)
+    const anchor = document.createElement('a')
+    anchor.href = url; anchor.download = `marketly-settlement-${settlement.id.slice(-8)}.pdf`; anchor.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
 
   if (me.isPending) return <DashboardLoading />
   if (me.isError || !isVendor) return <Navigate to="/" replace />
@@ -73,6 +91,10 @@ export function VendorDashboardPage() {
           <FinanceMetric label="Refunds" value={money(dashboard.data.refund_paise)} />
         </div>
       </div>
+      <section className="vendor-finance-panel vendor-settlement-history">
+        <div className="finance-heading"><div><span className="vendor-eyebrow">ACCOUNT HISTORY</span><h2>Previous settlements</h2></div></div>
+        {settlements.isPending ? <p className="vendor-finance-muted">Loading settlement history…</p> : settlements.isError ? <p className="vendor-finance-muted">Settlement history is temporarily unavailable.</p> : !settlements.data?.settlements.length ? <p className="vendor-finance-muted">Your order settlements will appear here after delivery.</p> : <><div className="vendor-settlement-list">{settlements.data.settlements.map(settlement => <article className="vendor-settlement-row" key={settlement.id}><div><strong>Order #{settlement.vendor_order_id.slice(-8).toUpperCase()}</strong><small>{new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(settlement.settled_at ?? settlement.created_at))} · {settlement.status}{settlement.simulated_payout ? ' · simulated, no funds transferred' : ''}</small></div><div className="vendor-settlement-amount"><strong>{money(settlement.net_paise)}</strong><small>Net after commission and refunds</small></div><button className="button neutral small" type="button" onClick={() => void downloadSettlement(settlement)}><Download size={14} /> Invoice PDF</button></article>)}</div>{settlements.data.pagination.pages > 1 && <div className="vendor-settlement-pagination"><button className="button neutral small" disabled={settlementPage <= 1} onClick={() => setSettlementPage(page => Math.max(1, page - 1))}><ChevronLeft size={14} /> Previous</button><span>Page {settlementPage} of {settlements.data.pagination.pages}</span><button className="button neutral small" disabled={settlementPage >= settlements.data.pagination.pages} onClick={() => setSettlementPage(page => Math.min(settlements.data!.pagination.pages, page + 1))}>Next <ChevronRight size={14} /></button></div>}</>}
+      </section>
       <div className="vendor-dashboard-footnote">Sales and payout totals are shown in Indian rupees.</div>
     </>}
   </section>

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Address, Cart, CartItem, Coupon, CouponRedemption, InventoryMovement, Order, OrderItem, OrderStatusHistory, Payment, PaymentRefundRequest, Product, ProductImage, Review, ReturnRequest, Shipment, VendorOrder } from "../models";
 import { AuthRequest, authenticate } from "../middleware/auth";
 import { acquireRedisMutex, acquireRedisMutexes, RedisMutexTimeoutError } from "../utils/redisMutex.js";
-import { createDocumentPdf, pdfMoney } from "../utils/pdf.js";
+import { createInvoicePdf } from "../utils/pdf.js";
 
 const ordersRouter = Router();
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -457,29 +457,20 @@ ordersRouter.get("/orders/:uuid/invoice.pdf", authenticate, async (req: AuthRequ
   try {
     const order = await Order.findOne({ _id: orderId, user_id: req.user.id, payment_status: { $in: ["paid", "partially_refunded", "refunded"] } }).lean();
     if (!order) return res.status(404).json({ message: "Order not found" });
-    const [items, payment] = await Promise.all([
-      OrderItem.find({ order_id: orderId }).sort({ _id: 1 }).lean(),
-      Payment.findOne({ order_id: orderId }).sort({ created_at: -1, _id: -1 }).lean(),
-    ]);
+    const items = await OrderItem.find({ order_id: orderId }).sort({ _id: 1 }).lean();
     const address = order.address_snapshot as Record<string, string | undefined>;
-    const lines = [
-      `INVOICE  #${orderId.toUpperCase()}`,
-      `Invoice date: ${new Date(order.created_at).toLocaleDateString("en-IN")}`,
-      `Order status: ${order.status}  |  Payment status: ${order.payment_status}`,
-      "", "BILLED TO", address.addressee_name ?? "Customer", address.first_line ?? "",
-      address.second_line ?? "", [address.city, address.state, address.postal_code, address.country].filter(Boolean).join(", "),
-      address.contact_number ? `Contact: ${address.contact_number}` : "",
-      "", "ITEMIZED PURCHASE", "Product | SKU | Qty | Unit price | Discount | Line total",
-      ...items.map((item) => `${item.product_name} | ${item.sku} | ${item.quantity} | ${pdfMoney(item.unit_price_paise)} | ${pdfMoney(item.discount_paise)} | ${pdfMoney(item.line_total_paise)}`),
-      "", `Subtotal: ${pdfMoney(order.subtotal_paise)}`,
-      `Discount: -${pdfMoney(order.discount_paise)}`,
-      `Shipping: ${pdfMoney(order.shipping_paise)}`,
-      `ORDER TOTAL: ${pdfMoney(order.total_paise)}`,
-      `Payment: ${payment ? `${payment.provider} / ${payment.status} / ${payment.currency}` : order.payment_status}`,
-      payment?.provider_payment_id ? `Payment reference: ${payment.provider_payment_id}` : "",
-      "", "Thank you for shopping with Marketly.",
-    ].filter((line) => line !== "");
-    const pdf = createDocumentPdf("Customer order invoice", `Order ${orderId.toUpperCase()}  ·  Marketly`, lines);
+    const pdf = await createInvoicePdf({
+      invoiceNumber: `ML-${orderId.slice(-8).toUpperCase()}`,
+      orderId,
+      date: new Date(order.created_at),
+      status: order.status,
+      address,
+      items,
+      subtotalPaise: order.subtotal_paise,
+      discountPaise: order.discount_paise,
+      shippingPaise: order.shipping_paise,
+      totalPaise: order.total_paise,
+    });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=marketly-order-${orderId.slice(-8)}.pdf`);
     return res.send(pdf);

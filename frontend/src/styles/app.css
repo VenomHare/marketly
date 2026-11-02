@@ -369,6 +369,14 @@ main { max-width: 1480px; padding-top: 4px; }
 .finance-metric span { color: #697991; font-size: 12px; }
 .finance-metric strong { color: #14213D; font-size: 22px; line-height: 28px; font-variant-numeric: tabular-nums; }
 .vendor-dashboard-footnote { margin-top: 14px; color: #71809A; font-size: 11px; }
+.vendor-settlement-history { margin-top: 20px; }
+.vendor-finance-muted { margin: 14px 0 0; color: #71809A; }
+.vendor-settlement-list { display: grid; gap: 0; margin-top: 10px; }
+.vendor-settlement-row { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(150px, auto) auto; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid #DFE7F4; }
+.vendor-settlement-row > div { display: grid; gap: 5px; }
+.vendor-settlement-row small { color: #71809A; font-size: 12px; }
+.vendor-settlement-amount { text-align: right; }
+.vendor-settlement-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 14px; border-top: 1px solid #DFE7F4; color: #71809A; font-size: 12px; }
 .vendor-dashboard-error { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; border: 1px solid #DFE7F4; border-radius: 16px; background: white; color: #56657A; }
 .vendor-dashboard-error p { margin: 0; }
 .vendor-dashboard-error .button { gap: 7px; }
@@ -947,6 +955,7 @@ main { max-width: 1480px; padding-top: 4px; }
 .admin-coupon-tabs button.active { color: #2857A4; background: #fff; box-shadow: 0 1px 4px rgb(30 49 81 / 12%); }
 .admin-coupon-toolbar > .button { gap: 6px; min-height: 35px; font-size: 9px; }
 .admin-error { color: #B44D45; font-size: 9px; }
+.admin-success { color: #167344; font-size: 13px; }
 .admin-modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(17 27 43 / 45%); }
 .confirm-action-backdrop { position: fixed; z-index: 150; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(15 29 54 / 58%); backdrop-filter: blur(3px); animation: confirm-backdrop-in .14s ease-out; }
 .confirm-action-modal { width: min(100%, 420px); padding: 25px; border: 1px solid #E2E8F2; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px rgb(14 28 53 / 28%); animation: confirm-modal-in .16s ease-out; }
@@ -1027,6 +1036,9 @@ main { max-width: 1480px; padding-top: 4px; }
   .vendor-metric { min-height: 132px; padding: 14px; gap: 9px; }
   .vendor-metric strong { font-size: 21px; }
   .vendor-finance-panel { padding: 18px; }
+  .vendor-settlement-row { grid-template-columns: 1fr auto; }
+  .vendor-settlement-amount { text-align: left; }
+  .vendor-settlement-row > button { grid-column: 1 / -1; justify-self: start; }
   .finance-grid { grid-template-columns: 1fr; gap: 14px; }
   .finance-metric, .finance-metric:first-child { padding: 12px 0 0; border: 0; border-top: 1px solid #DFE7F4; }
   .finance-metric strong { font-size: 20px; }

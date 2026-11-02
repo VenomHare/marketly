@@ -62,6 +62,13 @@ export function ApplyVendorPage() {
       <VendorInput id="vendor-display-name" label="Store name" hint="This is how your store will appear to customers." error={form.formState.errors.display_name?.message} {...form.register('display_name')} />
       <div className="vendor-field"><label htmlFor="vendor-address">Business address</label><textarea id="vendor-address" rows={3} aria-invalid={Boolean(form.formState.errors.address)} {...form.register('address')} />{form.formState.errors.address?.message ? <span className="field-error">{form.formState.errors.address.message}</span> : <span className="field-hint">Your primary business or pickup address.</span>}</div>
       <VendorInput id="vendor-postal-code" label="Postal code" autoComplete="postal-code" error={form.formState.errors.postal_code?.message} {...form.register('postal_code')} />
+      <div className="vendor-form-heading vendor-bank-heading"><div><span className="form-step">PAYOUT DETAILS</span><h2>Bank account</h2></div></div>
+      <p className="vendor-form-note">Your account number is encrypted before it is stored. Only the last four digits will be shown in Marketly.</p>
+      <VendorInput id="bank-account-holder" label="Account holder name" autoComplete="name" error={form.formState.errors.bank_account_holder?.message} {...form.register('bank_account_holder')} />
+      <VendorInput id="bank-account-number" label="Bank account number" inputMode="numeric" autoComplete="off" error={form.formState.errors.bank_account_number?.message} {...form.register('bank_account_number')} />
+      <VendorInput id="bank-ifsc" label="IFSC code" autoCapitalize="characters" autoComplete="off" error={form.formState.errors.bank_ifsc?.message} {...form.register('bank_ifsc')} />
+      <VendorInput id="bank-name" label="Bank name" autoComplete="organization" error={form.formState.errors.bank_name?.message} {...form.register('bank_name')} />
+      <div className="vendor-field"><label htmlFor="bank-account-type">Account type</label><select id="bank-account-type" {...form.register('bank_account_type')}><option value="savings">Savings</option><option value="current">Current</option></select></div>
       <button className="button primary vendor-submit" type="submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting ? <LoaderCircle className="vendor-spinner" size={17} /> : <>Continue to verification <ArrowRight size={17} /></>}</button>
       <p className="vendor-form-note">Your details are used to set up your seller profile.</p>
       <Link to="/" className="vendor-back-link">Back to shopping</Link>

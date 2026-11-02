@@ -12,6 +12,7 @@ export interface IVendorSettlement extends Document {
   status: "pending" | "processing" | "paid" | "failed";
   provider_transfer_id?: string;
   payout_balance_offset_paise: number;
+  simulated_payout: boolean;
   created_at: Date;
   settled_at?: Date;
 }
@@ -28,6 +29,7 @@ const VendorSettlementSchema = new Schema<IVendorSettlement>(
     status: { type: String, enum: ["pending", "processing", "paid", "failed"], default: "pending" },
     provider_transfer_id: { type: String },
     payout_balance_offset_paise: { type: Number, default: 0 },
+    simulated_payout: { type: Boolean, default: false },
     created_at: { type: Date, default: Date.now },
     settled_at: { type: Date },
   },
