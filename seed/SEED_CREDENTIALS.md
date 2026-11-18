@@ -42,10 +42,10 @@ These are local/demo credentials. Change them before using this database in a sh
 
 ## Run
 
-From `backend/`, set `MONGODB_URI`, `JWT_SECRET` (used to encrypt demo vendor bank details), and the Elasticsearch connection settings (`ELASTICSEARCH_URL`, plus credentials if required). Elasticsearch must be reachable; the seed resets its `products` index before dropping MongoDB, then indexes and verifies every active product:
+From the project root, copy `.env.example` to `backend/.env` and configure the R2/S3-compatible object storage settings. The local MongoDB, Redis, and Elasticsearch values in the example match `compose.yaml`. The seed uploads `placeholder/1.webp`, `placeholder/2.webp`, and `placeholder/3.webp` to `products/placeholder/` before resetting the database. Elasticsearch must be reachable; the seed resets its `products` index before dropping MongoDB, then indexes and verifies every active product:
 
 ```sh
 SEED_ALLOW_RESET=true npm run seed
 ```
 
-The script drops the connected database before inserting demo data. It inserts 50 products (five per category), and placeholder product image object keys that can be replaced after uploading real images.
+The script drops the connected database before inserting demo data. It inserts 50 products (five per category), each with the same three placeholder images in positions 0, 1, and 2. The frontend must have `VITE_R2_PUBLIC_BASE_URL` set to the public base URL for the configured bucket.

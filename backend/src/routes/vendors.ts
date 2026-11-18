@@ -278,6 +278,20 @@ vendorsRouter.get("/vendors/:uuid/products", async (req, res, next) => {
       Product.find(filter).sort({ created_at: -1, _id: -1 }).skip((page - 1) * limit).limit(limit),
       Product.countDocuments(filter),
     ]);
+    const productIds = products.map((product) => product.id);
+    const images = await ProductImage.find({ product_id: { $in: productIds } }).sort({ position: 1, _id: 1 }).lean();
+    const imagesByProduct = new Map<string, Array<{ id: string; object_key: string; alt_text?: string; position: number }>>();
+    for (const image of images) {
+      const productImages = imagesByProduct.get(image.product_id) ?? [];
+      productImages.push({
+        id: image._id.toString(),
+        object_key: image.object_key,
+        ...(image.alt_text ? { alt_text: image.alt_text } : {}),
+        position: image.position,
+      });
+      imagesByProduct.set(image.product_id, productImages);
+    }
+
     return res.json({
       products: products.map((product) => ({
         id: product.id,
@@ -286,6 +300,7 @@ vendorsRouter.get("/vendors/:uuid/products", async (req, res, next) => {
         price: product.price,
         average_rating: product.average_rating,
         review_count: product.review_count,
+        images: imagesByProduct.get(product.id) ?? [],
         created_at: product.created_at,
       })),
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },

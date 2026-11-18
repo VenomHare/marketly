@@ -8,7 +8,9 @@
   },
   "scripts": {
     "back:dev": "cd backend && npm run dev",
-    "front:dev": "cd frontend && npm run dev"
+    "front:dev": "cd frontend && npm run dev",
+    "seed": "cd backend && npm run seed",
+    "seed:categories": "cd backend && npm run seed:categories"
   },
   "repository": {
     "type": "git",

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import mongoose from "mongoose";
 import { z } from "zod";
 import {
   AdminAuditLog, Category, Coupon, CouponRedemption, Order, OrderItem, Payment,
@@ -283,7 +284,7 @@ adminRouter.get("/admin/settlements", async (req, res) => {
       const payment = orderId ? paymentMap.get(orderId) : undefined;
       let group = grouped.get(vendorId);
       if (!group) {
-        group = { id: vendorId, vendor_id: vendorId, vendor_name: vendor?.display_name ?? "Vendor", bank_account_holder: vendor?.bank_account_holder ?? null, bank_account_last4: vendor?.bank_account_last4 ?? null, bank_ifsc: vendor?.bank_ifsc ?? null, bank_name: vendor?.bank_name ?? null, bank_account_type: vendor?.bank_account_type ?? null, vendor_payout_balance_paise: vendor?.payout_balance_paise ?? 0, gross_paise: 0, commission_paise: 0, commission_reversed_paise: 0, refund_paise: 0, net_paise: 0, lifetime_net_paise: 0, status: "paid", entries: [], created_at: item.created_at };
+        group = { id: vendorId, vendor_id: vendorId, vendor_name: vendor?.display_name ?? "Vendor", bank_account_holder: vendor?.bank_account_holder ?? null, bank_account_last4: vendor?.bank_account_last4 ?? null, bank_ifsc: vendor?.bank_ifsc ?? null, bank_name: vendor?.bank_name ?? null, bank_account_type: vendor?.bank_account_type ?? null, vendor_payout_balance_paise: vendor?.payout_balance_paise ?? 0, gross_paise: 0, commission_paise: 0, commission_reversed_paise: 0, refund_paise: 0, net_paise: 0, account_balance_paise: 0, owed_to_vendor_paise: 0, owed_to_marketly_paise: 0, lifetime_net_paise: 0, status: "paid", entries: [], created_at: item.created_at };
         grouped.set(vendorId, group);
       }
       group.gross_paise += item.gross_paise;
@@ -293,15 +294,26 @@ adminRouter.get("/admin/settlements", async (req, res) => {
       group.lifetime_net_paise += item.net_paise;
       if (item.status !== "paid") group.net_paise += item.net_paise;
       group.created_at = item.created_at < group.created_at ? item.created_at : group.created_at;
-      group.entries.push({ id: item._id.toString(), vendor_order_id: item.vendor_order_id, order_id: orderId ?? "", net_paise: item.net_paise, status: item.status, simulated_payout: item.simulated_payout ?? false, provider_transfer_id: item.provider_transfer_id ?? null, provider_payment_id: payment?.provider_payment_id ?? null, payment_amount_paise: payment?.amount_paise ?? null, created_at: item.created_at, settled_at: item.settled_at });
+      group.entries.push({ id: item._id.toString(), vendor_order_id: item.vendor_order_id, order_id: orderId ?? "", gross_paise: item.gross_paise, commission_paise: item.commission_paise - (item.commission_reversed_paise ?? 0), refund_paise: item.refund_paise, net_paise: item.net_paise, status: item.status, simulated_payout: item.simulated_payout ?? false, provider_transfer_id: item.provider_transfer_id ?? null, provider_payment_id: payment?.provider_payment_id ?? null, payment_amount_paise: payment?.amount_paise ?? null, created_at: item.created_at, settled_at: item.settled_at });
     }
     let result = [...grouped.values()];
     if (q.data.status) result = result.filter((group) => group.entries.some((entry: any) => entry.status === q.data.status));
-    for (const group of result) group.status = group.entries.some((entry: any) => entry.status === "processing") ? "processing" : group.entries.some((entry: any) => ["pending", "failed"].includes(entry.status) && entry.net_paise > 0) ? "pending" : group.entries.some((entry: any) => entry.status === "failed") ? "failed" : "paid";
+    for (const group of result) {
+      group.account_balance_paise = group.net_paise + group.vendor_payout_balance_paise;
+      group.owed_to_vendor_paise = Math.max(0, group.account_balance_paise);
+      group.owed_to_marketly_paise = Math.max(0, -group.account_balance_paise);
+      group.status = group.entries.some((entry: any) => entry.status === "processing") ? "processing" : group.entries.some((entry: any) => ["pending", "failed"].includes(entry.status) && entry.net_paise > 0) ? "pending" : group.entries.some((entry: any) => entry.status === "failed") ? "failed" : "paid";
+    }
     result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     const total = result.length;
+    const summary = result.reduce((totals, group) => ({
+      account_count: totals.account_count + 1,
+      owed_to_vendor_paise: totals.owed_to_vendor_paise + group.owed_to_vendor_paise,
+      owed_to_marketly_paise: totals.owed_to_marketly_paise + group.owed_to_marketly_paise,
+      open_account_count: totals.open_account_count + (group.entries.some((entry: any) => ["pending", "failed"].includes(entry.status) && entry.net_paise > 0) ? 1 : 0),
+    }), { account_count: 0, owed_to_vendor_paise: 0, owed_to_marketly_paise: 0, open_account_count: 0 });
     const settlements = result.slice((q.data.page - 1) * q.data.limit, q.data.page * q.data.limit);
-    return res.json({ settlements, pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } });
+    return res.json({ settlements, summary, pagination: { ...q.data, total, total_pages: Math.ceil(total / q.data.limit) } });
   }
   catch (e) { return fail(res, "fetch settlements", e); }
 });
@@ -359,6 +371,61 @@ adminRouter.post("/admin/settlements/reconcile", async (req: AuthRequest, res) =
     await audit(req, "settlements.reconcile", "settlement", "delivered-orders");
     return res.json({ created });
   } catch (e) { return fail(res, "reconcile settlements", e); }
+});
+adminRouter.post("/admin/settlements/accounts/:uuid/settle", async (req: AuthRequest, res) => {
+  if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid vendor id" });
+  if (!z.object({}).strict().safeParse(req.body).success) return res.status(400).json({ message: "Invalid parameters" });
+  let release: (() => Promise<void>);
+  try { release = await acquireRedisMutex(`vendor-payout-release:${req.params.uuid}`); }
+  catch (error) { return res.status(error instanceof RedisMutexTimeoutError ? 409 : 503).json({ message: "Seller account settlement is temporarily unavailable" }); }
+  const session = await mongoose.startSession();
+  let result: { amount_paise: number; offset_paise: number; entries: number } | null = null;
+  try {
+    await session.withTransaction(async () => {
+      const vendor = await Vendor.findById(req.params.uuid).select("payout_balance_paise bank_account_holder bank_account_number_encrypted bank_account_last4 bank_ifsc").session(session).lean();
+      if (!vendor) throw Object.assign(new Error("Seller account not found"), { status: 404 });
+      const entries = await VendorSettlement.find({ vendor_id: req.params.uuid, status: { $in: ["pending", "failed"] }, net_paise: { $gt: 0 } }).sort({ created_at: 1, _id: 1 }).session(session);
+      if (!entries.length) throw Object.assign(new Error("This seller account has no unsettled earnings"), { status: 409 });
+      const vendorOrders = await VendorOrder.find({ _id: { $in: entries.map(entry => entry.vendor_order_id) } }).select("order_id").session(session).lean();
+      const orderIds = vendorOrders.map(order => order.order_id);
+      if (await PaymentRefundRequest.exists({ order_id: { $in: orderIds }, status: { $in: ["requested", "processing"] } }).session(session)) {
+        throw Object.assign(new Error("A refund request is active for one of these orders. Review it before settling this account."), { status: 409 });
+      }
+      const totalNet = entries.reduce((sum, entry) => sum + entry.net_paise, 0);
+      const currentDebt = Math.max(0, -(vendor.payout_balance_paise ?? 0));
+      const payoutAmount = Math.max(0, totalNet - currentDebt);
+      if (payoutAmount > 0 && (!vendor.bank_account_number_encrypted || !vendor.bank_account_last4 || !vendor.bank_ifsc || !vendor.bank_account_holder)) {
+        throw Object.assign(new Error("Add complete bank details before recording a seller payout."), { status: 409 });
+      }
+      let remainingDebt = currentDebt;
+      let totalOffset = 0;
+      const settledAt = new Date();
+      for (const entry of entries) {
+        const offset = Math.min(entry.net_paise, remainingDebt);
+        remainingDebt -= offset;
+        totalOffset += offset;
+        entry.payout_balance_offset_paise = offset;
+        entry.status = "paid";
+        entry.simulated_payout = true;
+        entry.provider_transfer_id = `SIM-${Date.now()}-${entry.id.slice(-6)}`;
+        entry.settled_at = settledAt;
+        await entry.save({ session });
+      }
+      if (totalOffset > 0) await Vendor.updateOne({ _id: req.params.uuid }, { $inc: { payout_balance_paise: totalOffset } }, { session });
+      result = { amount_paise: payoutAmount, offset_paise: totalOffset, entries: entries.length };
+    });
+    const settled = result as { amount_paise: number; offset_paise: number; entries: number } | null;
+    if (!settled) throw new Error("Seller account settlement did not complete");
+    await audit(req, "settlement.account_simulated_release", "vendor", req.params.uuid);
+    return res.json({ ...settled, simulated: true });
+  } catch (error) {
+    const status = typeof error === "object" && error !== null && "status" in error ? Number((error as { status: unknown }).status) : 500;
+    if (status === 404 || status === 409) return res.status(status).json({ message: (error as Error).message });
+    return fail(res, "settle seller account", error);
+  } finally {
+    await session.endSession();
+    await release();
+  }
 });
 adminRouter.post("/admin/settlements/:uuid/release", async (req: AuthRequest, res) => {
   if (!validId(req.params.uuid)) return res.status(400).json({ message: "Invalid settlement id" });

@@ -52,9 +52,10 @@ Some handlers in this group are implemented; routes marked with coupon operation
 | `DELETE /admin/coupons/:uuid` | Active admin bearer token; `uuid` |
 | `GET /admin/orders` | None |
 | `PATCH /admin/orders/:uuid/status` | None; `uuid` |
-| `GET /admin/settlements` | Active admin bearer token; optional `page`, `limit`, `status` | Lists payment amount and ID, Route destination, gross, net commission, seller refunds, seller balance offset, transfer ID and release state |
-| `POST /admin/settlements/reconcile` | Active admin bearer token; `{confirm:true}`; creates missing pending settlements for delivered paid orders using the vendors' current commission rates |
-| `POST /admin/settlements/:uuid/release` | Active admin bearer token; `{}` | Sends seller net through Razorpay Route; requires Route activation, an onboarded linked account and a successful INR payment |
+| `GET /admin/settlements` | Active admin bearer token; optional `page`, `limit`, `status` | Lists seller accounts with unpaid order earnings, carried balance, signed account balance, bank destination, order entries, and marketplace-wide balance totals |
+| `POST /admin/settlements/reconcile` | Active admin bearer token; `{confirm:true}` | Creates missing pending settlement entries for delivered, paid orders using the vendors' current commission rates |
+| `POST /admin/settlements/accounts/:vendorId/settle` | Active admin bearer token; `{}` | Atomically marks all eligible pending/failed order entries for a seller as settled, offsets any seller debt, and records a simulated payout reference. It does not transfer funds. Requires bank details when a positive payout is due. |
+| `POST /admin/settlements/:uuid/release` | Active admin bearer token; `{}` | Legacy per-entry simulated settlement endpoint. It does not transfer funds. |
 | `POST /admin/settlements/:uuid/retry` | Active admin bearer token; `uuid` |
 | `PATCH /admin/reviews/:uuid/moderation` | None; `uuid` |
 | `GET /admin/analytics/overview` | None |
@@ -69,5 +70,5 @@ Some handlers in this group are implemented; routes marked with coupon operation
 
 The middleware column reflects the implementation: routes listed with no auth middleware are currently reachable without admin authentication, including the placeholder handlers. The implemented user management routes require admin authentication.
 
-Refund approval returns the full customer payment. The settlement ledger charges the refunded seller net, removes the corresponding Marketly commission, and keeps the payment processor fee with Marketly. If a seller was already paid, their vendor balance becomes negative and is offset against later releases. Razorpay Route transfers are initiated by an administrator after reviewing the settlement and require an onboarded linked account.
+The admin settlement screen shows a signed seller account balance: positive means Marketly owes the seller; negative means the seller owes Marketly. The balance combines unpaid order entries with any carried refund debt. The account settlement endpoint records a simulated payout and clears all eligible entries atomically; this flow does not send funds to a bank. Refund approval returns the full customer payment. The settlement ledger reverses the corresponding Marketly commission and charges the seller's net amount. If an entry was already paid, the seller's balance becomes negative and offsets future earnings.
 

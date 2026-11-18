@@ -1,7 +1,9 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
-import { encryptBankAccount } from "../utils/bankDetails";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { encryptBankAccount } from "../backend/src/utils/bankDetails";
+import { uploadObject } from "../backend/src/utils/objectStorage";
 import {
   Address,
   AdminAuditLog,
@@ -27,11 +29,13 @@ import {
   VendorKyc,
   VendorOrder,
   VendorSettlement,
-} from "../models";
-import { elasticsearchRequest, indexProduct, resetProductsIndex, type SearchableProduct } from "../utils/elasticsearch";
+} from "../backend/src/models";
+import { elasticsearchRequest, indexProduct, resetProductsIndex, type SearchableProduct } from "../backend/src/utils/elasticsearch";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const DEMO_PASSWORD = "MarketlyDemo!2026";
+const placeholderDirectory = resolve(__dirname, "placeholder");
+const placeholderImageNames = ["1.webp", "2.webp", "3.webp"] as const;
 const categories = [
   ["Electronics", "electronics"],
   ["Fashion & Clothing", "fashion-clothing"],
@@ -125,12 +129,22 @@ async function main() {
     throw new Error("Set BANK_DETAILS_ENCRYPTION_KEY or JWT_SECRET before seeding vendor bank details.");
   }
 
-  await mongoose.connect(MONGODB_URI);
+  const placeholderKeys = await Promise.all(placeholderImageNames.map(async (fileName) => {
+    const key = `products/placeholder/${fileName}`;
+    await uploadObject({
+      key,
+      body: await readFile(resolve(placeholderDirectory, fileName)),
+      contentType: "image/webp",
+    });
+    return key;
+  }));
+
+  await User.db.openUri(MONGODB_URI);
   // Reset search before dropping MongoDB so an unavailable Elasticsearch service cannot leave it wiped.
   await resetProductsIndex();
-  const databaseName = mongoose.connection.name;
+  const databaseName = User.db.name;
   console.warn(`Dropping every collection in database '${databaseName}'...`);
-  await mongoose.connection.dropDatabase();
+  await User.db.dropDatabase();
 
   const password_hash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const admin = await User.create({ name: "Marketly Admin", email: "admin@marketly.demo", password_hash, role: "admin" });
@@ -184,12 +198,12 @@ async function main() {
     stock: 20 + (i % 30),
     status: "active" as const,
   })));
-  await ProductImage.insertMany(products.map((product) => ({
+  await ProductImage.insertMany(products.flatMap((product) => placeholderKeys.map((object_key, position) => ({
     product_id: product.id,
-    object_key: `products/${product.vendor_id}/replace-image-${product.sku.toLowerCase()}.jpg`,
-    alt_text: `${product.name} product image placeholder: replace manually`,
-    position: 0,
-  })));
+    object_key,
+    alt_text: `${product.name} placeholder image ${position + 1}`,
+    position,
+  }))));
 
   const now = new Date();
   const coupon = await Coupon.create({
@@ -211,9 +225,13 @@ async function main() {
     const product = products[i]!;
     const vendor = vendorDocs[i % vendorDocs.length]!;
     const refunded = i === 0;
+    const unsettled = i === 1 || i === 2;
     const price = product.price * 100;
     const discount = i === 1 ? Math.min(10000, Math.round(price * 0.1)) : 0;
     const total = price - discount;
+    const commission = Math.floor(total * vendor.commission_rate_bps / 10000);
+    const sellerNet = total - commission;
+    const settlementStatus = refunded ? "paid" : i === 2 ? "failed" : unsettled ? "pending" : "paid";
     const order = await Order.create({
       user_id: user.id,
       cart_id: carts[i]!.id,
@@ -233,13 +251,14 @@ async function main() {
     });
     await VendorSettlement.create({
       vendor_order_id: vendorOrder.id, vendor_id: vendor.id, gross_paise: total,
-      commission_paise: Math.round(total * vendor.commission_rate_bps / 10000),
-      refund_paise: refunded ? total : 0,
-      commission_reversed_paise: refunded ? Math.round(total * vendor.commission_rate_bps / 10000) : 0,
-      net_paise: refunded ? 0 : Math.round(total * (10000 - vendor.commission_rate_bps) / 10000),
-      status: refunded ? "processing" : "paid", provider_transfer_id: refunded ? undefined : `demo_transfer_${i + 1}`,
-      payout_balance_offset_paise: 0, simulated_payout: true, settled_at: refunded ? undefined : now,
+      commission_paise: commission,
+      refund_paise: refunded ? sellerNet : 0,
+      commission_reversed_paise: refunded ? commission : 0,
+      net_paise: refunded ? 0 : sellerNet,
+      status: settlementStatus, provider_transfer_id: settlementStatus === "paid" ? `SIM-SEED-${String(i + 1).padStart(3, "0")}` : undefined,
+      payout_balance_offset_paise: 0, simulated_payout: settlementStatus === "paid", settled_at: settlementStatus === "paid" ? now : undefined,
     });
+    if (refunded) await Vendor.updateOne({ _id: vendor.id }, { $set: { payout_balance_paise: -sellerNet } });
     await Shipment.create({
       vendor_order_id: vendorOrder.id, carrier: "Demo Express", tracking_number: `MKTRK${String(i + 1).padStart(6, "0")}`,
       tracking_url: "https://example.invalid/track", shipped_at: now, delivered_at: now,
@@ -403,4 +422,4 @@ async function main() {
 
 main()
   .catch((error) => { console.error("Seed failed:", error); process.exitCode = 1; })
-  .finally(async () => { await mongoose.disconnect(); });
+  .finally(async () => { await User.db.close(); });

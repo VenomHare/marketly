@@ -1,4 +1,4 @@
-import Category from '../models/Category'
+import Category from '../backend/src/models/Category'
 
 const DEFAULT_CATEGORIES = [
   { name: 'Electronics', slug: 'electronics' },

@@ -509,6 +509,17 @@ productsRouter.get("/products/:uuid/related", async (req, res) => {
       .limit(queryValidation.data.limit)
       .lean();
 
+    const relatedProductIds = relatedProducts.map((related) => related._id.toString());
+    const relatedImages = await ProductImage.find({ product_id: { $in: relatedProductIds } })
+      .sort({ position: 1, _id: 1 })
+      .lean();
+    const imagesByProduct = new Map<string, typeof relatedImages>();
+    for (const image of relatedImages) {
+      const productImages = imagesByProduct.get(image.product_id) ?? [];
+      productImages.push(image);
+      imagesByProduct.set(image.product_id, productImages);
+    }
+
     return res.json({
       products: relatedProducts.map((related) => ({
         id: related._id.toString(),
@@ -521,6 +532,12 @@ productsRouter.get("/products/:uuid/related", async (req, res) => {
         average_rating: related.average_rating,
         review_count: related.review_count,
         status: related.status,
+        images: (imagesByProduct.get(related._id.toString()) ?? []).map((image) => ({
+          id: image._id.toString(),
+          object_key: image.object_key,
+          ...(image.alt_text ? { alt_text: image.alt_text } : {}),
+          position: image.position,
+        })),
         created_at: related.created_at,
       })),
     });
