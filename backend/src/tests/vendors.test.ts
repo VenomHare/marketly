@@ -53,44 +53,117 @@ describe("Vendor Routes", () => {
     postal_code: "12345",
   };
 
-  const tokenFor = (user: any) => jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
+  const tokenFor = (user: any) =>
+    jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
-  const postApplication = (body: unknown, token?: string) => fetch(`${BASE_URL}/vendors`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  const postApplication = (body: unknown, token?: string) =>
+    fetch(`${BASE_URL}/vendors`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
 
   beforeAll(async () => {
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/marketly");
-    const previousUsers = await User.find({ email: { $in: TEST_EMAILS } }).select("_id");
+    await mongoose.connect(
+      process.env.MONGODB_URI || "mongodb://localhost:27017/marketly",
+    );
+    const previousUsers = await User.find({
+      email: { $in: TEST_EMAILS },
+    }).select("_id");
     const previousUserIds = previousUsers.map((user) => user.id);
-    const previousVendors = await Vendor.find({ user_id: { $in: previousUserIds } }).select("_id");
-    await VendorKyc.deleteMany({ vendor_id: { $in: previousVendors.map((vendor) => vendor.id) } });
-    await Product.deleteMany({ vendor_id: { $in: previousVendors.map((vendor) => vendor.id) } });
-    await VendorOrder.deleteMany({ vendor_id: { $in: previousVendors.map((vendor) => vendor.id) } });
-    await VendorSettlement.deleteMany({ vendor_id: { $in: previousVendors.map((vendor) => vendor.id) } });
-    await OrderItem.deleteMany({ vendor_id: { $in: previousVendors.map((vendor) => vendor.id) } });
+    const previousVendors = await Vendor.find({
+      user_id: { $in: previousUserIds },
+    }).select("_id");
+    await VendorKyc.deleteMany({
+      vendor_id: { $in: previousVendors.map((vendor) => vendor.id) },
+    });
+    await Product.deleteMany({
+      vendor_id: { $in: previousVendors.map((vendor) => vendor.id) },
+    });
+    await VendorOrder.deleteMany({
+      vendor_id: { $in: previousVendors.map((vendor) => vendor.id) },
+    });
+    await VendorSettlement.deleteMany({
+      vendor_id: { $in: previousVendors.map((vendor) => vendor.id) },
+    });
+    await OrderItem.deleteMany({
+      vendor_id: { $in: previousVendors.map((vendor) => vendor.id) },
+    });
     await Vendor.deleteMany({ user_id: { $in: previousUserIds } });
     await User.deleteMany({ email: { $in: TEST_EMAILS } });
 
     const password_hash = await bcrypt.hash("password123", 10);
-    [applicant, existingApplicationCustomer, suspendedCustomer, existingVendorUser, admin, vendorWithoutProfile, suspendedVendor, publicProductsUser] = await User.create([
-      { name: "Applicant", email: TEST_EMAILS[0], password_hash, role: "customer", status: "active" },
-      { name: "Existing Application", email: TEST_EMAILS[1], password_hash, role: "customer", status: "active" },
-      { name: "Suspended Customer", email: TEST_EMAILS[2], password_hash, role: "customer", status: "suspended" },
-      { name: "Existing Vendor", email: TEST_EMAILS[3], password_hash, role: "vendor", status: "active" },
-      { name: "Admin", email: TEST_EMAILS[4], password_hash, role: "admin", status: "active" },
-      { name: "Vendor Without Profile", email: TEST_EMAILS[5], password_hash, role: "vendor", status: "active" },
-      { name: "Suspended Vendor", email: TEST_EMAILS[6], password_hash, role: "vendor", status: "suspended" },
-      { name: "Public Products Vendor", email: TEST_EMAILS[7], password_hash, role: "vendor", status: "active" },
+    [
+      applicant,
+      existingApplicationCustomer,
+      suspendedCustomer,
+      existingVendorUser,
+      admin,
+      vendorWithoutProfile,
+      suspendedVendor,
+      publicProductsUser,
+    ] = await User.create([
+      {
+        name: "Applicant",
+        email: TEST_EMAILS[0],
+        password_hash,
+        role: "customer",
+        status: "active",
+      },
+      {
+        name: "Existing Application",
+        email: TEST_EMAILS[1],
+        password_hash,
+        role: "customer",
+        status: "active",
+      },
+      {
+        name: "Suspended Customer",
+        email: TEST_EMAILS[2],
+        password_hash,
+        role: "customer",
+        status: "suspended",
+      },
+      {
+        name: "Existing Vendor",
+        email: TEST_EMAILS[3],
+        password_hash,
+        role: "vendor",
+        status: "active",
+      },
+      {
+        name: "Admin",
+        email: TEST_EMAILS[4],
+        password_hash,
+        role: "admin",
+        status: "active",
+      },
+      {
+        name: "Vendor Without Profile",
+        email: TEST_EMAILS[5],
+        password_hash,
+        role: "vendor",
+        status: "active",
+      },
+      {
+        name: "Suspended Vendor",
+        email: TEST_EMAILS[6],
+        password_hash,
+        role: "vendor",
+        status: "suspended",
+      },
+      {
+        name: "Public Products Vendor",
+        email: TEST_EMAILS[7],
+        password_hash,
+        role: "vendor",
+        status: "active",
+      },
     ]);
 
     await Vendor.create({
@@ -137,14 +210,28 @@ describe("Vendor Routes", () => {
   });
 
   afterAll(async () => {
-    const users = await User.find({ email: { $in: TEST_EMAILS } }).select("_id");
+    const users = await User.find({ email: { $in: TEST_EMAILS } }).select(
+      "_id",
+    );
     const userIds = users.map((user) => user.id);
-    const vendors = await Vendor.find({ user_id: { $in: userIds } }).select("_id");
-    await VendorKyc.deleteMany({ vendor_id: { $in: vendors.map((vendor) => vendor.id) } });
-    await Product.deleteMany({ vendor_id: { $in: vendors.map((vendor) => vendor.id) } });
-    await VendorOrder.deleteMany({ vendor_id: { $in: vendors.map((vendor) => vendor.id) } });
-    await VendorSettlement.deleteMany({ vendor_id: { $in: vendors.map((vendor) => vendor.id) } });
-    await OrderItem.deleteMany({ vendor_id: { $in: vendors.map((vendor) => vendor.id) } });
+    const vendors = await Vendor.find({ user_id: { $in: userIds } }).select(
+      "_id",
+    );
+    await VendorKyc.deleteMany({
+      vendor_id: { $in: vendors.map((vendor) => vendor.id) },
+    });
+    await Product.deleteMany({
+      vendor_id: { $in: vendors.map((vendor) => vendor.id) },
+    });
+    await VendorOrder.deleteMany({
+      vendor_id: { $in: vendors.map((vendor) => vendor.id) },
+    });
+    await VendorSettlement.deleteMany({
+      vendor_id: { $in: vendors.map((vendor) => vendor.id) },
+    });
+    await OrderItem.deleteMany({
+      vendor_id: { $in: vendors.map((vendor) => vendor.id) },
+    });
     await Vendor.deleteMany({ user_id: { $in: userIds } });
     await User.deleteMany({ email: { $in: TEST_EMAILS } });
     await mongoose.connection.close();
@@ -154,20 +241,32 @@ describe("Vendor Routes", () => {
     it("requires a bearer token", async () => {
       const response = await postApplication(vendorPayload);
       expect(response.status).toBe(401);
-      expect(await response.json()).toHaveProperty("message", "No token provided");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "No token provided",
+      );
     });
 
     it("rejects malformed, invalid, and expired bearer tokens", async () => {
-      const invalidTokenResponse = await postApplication(vendorPayload, "not-a-jwt");
+      const invalidTokenResponse = await postApplication(
+        vendorPayload,
+        "not-a-jwt",
+      );
       expect(invalidTokenResponse.status).toBe(401);
-      expect(await invalidTokenResponse.json()).toHaveProperty("message", "Invalid or expired token");
+      expect(await invalidTokenResponse.json()).toHaveProperty(
+        "message",
+        "Invalid or expired token",
+      );
 
       const expiredToken = jwt.sign(
         { id: applicant.id, email: applicant.email, role: "customer" },
         JWT_SECRET,
-        { expiresIn: -1 }
+        { expiresIn: -1 },
       );
-      const expiredTokenResponse = await postApplication(vendorPayload, expiredToken);
+      const expiredTokenResponse = await postApplication(
+        vendorPayload,
+        expiredToken,
+      );
       expect(expiredTokenResponse.status).toBe(401);
     });
 
@@ -182,41 +281,66 @@ describe("Vendor Routes", () => {
       for (const payload of invalidPayloads) {
         const response = await postApplication(payload, customerToken);
         expect(response.status).toBe(400);
-        expect(await response.json()).toHaveProperty("message", "Invalid parameters");
+        expect(await response.json()).toHaveProperty(
+          "message",
+          "Invalid parameters",
+        );
       }
     });
 
     it("rejects tokens for users that do not exist", async () => {
       const token = jwt.sign(
-        { id: new mongoose.Types.ObjectId().toString(), email: "missing@test.com", role: "customer" },
+        {
+          id: new mongoose.Types.ObjectId().toString(),
+          email: "missing@test.com",
+          role: "customer",
+        },
         JWT_SECRET,
-        { expiresIn: "7d" }
+        { expiresIn: "7d" },
       );
       const response = await postApplication(vendorPayload, token);
       expect(response.status).toBe(403);
-      expect(await response.json()).toHaveProperty("message", "Active customer account required");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Active customer account required",
+      );
     });
 
     it("rejects suspended customers", async () => {
       const response = await postApplication(vendorPayload, suspendedToken);
       expect(response.status).toBe(403);
-      expect(await response.json()).toHaveProperty("message", "Active customer account required");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Active customer account required",
+      );
     });
 
     it("rejects vendor and admin accounts", async () => {
       const vendorResponse = await postApplication(vendorPayload, vendorToken);
       expect(vendorResponse.status).toBe(409);
-      expect(await vendorResponse.json()).toHaveProperty("message", "Only customers can apply to become a vendor");
+      expect(await vendorResponse.json()).toHaveProperty(
+        "message",
+        "Only customers can apply to become a vendor",
+      );
 
       const adminResponse = await postApplication(vendorPayload, adminToken);
       expect(adminResponse.status).toBe(409);
-      expect(await adminResponse.json()).toHaveProperty("message", "Only customers can apply to become a vendor");
+      expect(await adminResponse.json()).toHaveProperty(
+        "message",
+        "Only customers can apply to become a vendor",
+      );
     });
 
     it("rejects a customer who already has a vendor application", async () => {
-      const response = await postApplication(vendorPayload, tokenFor(existingApplicationCustomer));
+      const response = await postApplication(
+        vendorPayload,
+        tokenFor(existingApplicationCustomer),
+      );
       expect(response.status).toBe(409);
-      expect(await response.json()).toHaveProperty("message", "Vendor application already exists");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Vendor application already exists",
+      );
     });
 
     it("creates a pending vendor application and promotes the customer", async () => {
@@ -234,12 +358,18 @@ describe("Vendor Routes", () => {
       expect(body).toHaveProperty("updated_at");
       expect((await User.findById(applicant.id))?.role).toBe("vendor");
       applicantVendor = await Vendor.findOne({ user_id: applicant.id });
-      vendorToken = tokenFor({ ...applicant.toObject(), id: applicant.id, role: "vendor" });
+      vendorToken = tokenFor({
+        ...applicant.toObject(),
+        id: applicant.id,
+        role: "vendor",
+      });
 
-      const duplicateResponse = await postApplication(vendorPayload, customerToken);
+      const duplicateResponse = await postApplication(
+        vendorPayload,
+        customerToken,
+      );
       expect(duplicateResponse.status).toBe(409);
     });
-
   });
 
   describe("GET /vendors/me", () => {
@@ -251,7 +381,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${customerToken}` },
       });
       expect(customerResponse.status).toBe(403);
-      expect(await customerResponse.json()).toHaveProperty("message", "Vendor access required");
+      expect(await customerResponse.json()).toHaveProperty(
+        "message",
+        "Vendor access required",
+      );
     });
 
     it("returns 403 when a vendor account has no vendor profile", async () => {
@@ -259,7 +392,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${vendorWithoutProfileToken}` },
       });
       expect(response.status).toBe(403);
-      expect(await response.json()).toHaveProperty("message", "Vendor profile not found");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Vendor profile not found",
+      );
     });
 
     it("rejects a suspended vendor account", async () => {
@@ -267,7 +403,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${suspendedVendorToken}` },
       });
       expect(response.status).toBe(403);
-      expect(await response.json()).toHaveProperty("message", "Active vendor account required");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Active vendor account required",
+      );
     });
 
     it("returns only the authenticated vendor's profile", async () => {
@@ -313,7 +452,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${suspendedVendorToken}` },
       });
       expect(suspended.status).toBe(403);
-      expect(await suspended.json()).toHaveProperty("message", "Active vendor account required");
+      expect(await suspended.json()).toHaveProperty(
+        "message",
+        "Active vendor account required",
+      );
     });
 
     it("returns zero metrics when the vendor has no products, orders, or settlements", async () => {
@@ -334,15 +476,65 @@ describe("Vendor Routes", () => {
 
     it("returns metrics scoped to the authenticated vendor", async () => {
       await Product.create([
-        { vendor_id: kycVendor.id, category_id: "category-d", name: "Dashboard Active", description: "Active", sku: "DASH-1", price: 100, stock: 2, status: "active" },
-        { vendor_id: kycVendor.id, category_id: "category-d", name: "Dashboard Draft", description: "Draft", sku: "DASH-2", price: 100, stock: 2, status: "draft" },
+        {
+          vendor_id: kycVendor.id,
+          category_id: "category-d",
+          name: "Dashboard Active",
+          description: "Active",
+          sku: "DASH-1",
+          price: 100,
+          stock: 2,
+          status: "active",
+        },
+        {
+          vendor_id: kycVendor.id,
+          category_id: "category-d",
+          name: "Dashboard Draft",
+          description: "Draft",
+          sku: "DASH-2",
+          price: 100,
+          stock: 2,
+          status: "draft",
+        },
       ]);
-      const openOrder = await VendorOrder.create({ order_id: "dashboard-order-open", vendor_id: kycVendor.id, status: "shipped" });
-      await VendorOrder.create({ order_id: "dashboard-order-closed", vendor_id: kycVendor.id, status: "delivered" });
+      const openOrder = await VendorOrder.create({
+        order_id: "dashboard-order-open",
+        vendor_id: kycVendor.id,
+        status: "shipped",
+      });
+      await VendorOrder.create({
+        order_id: "dashboard-order-closed",
+        vendor_id: kycVendor.id,
+        status: "delivered",
+      });
       await VendorSettlement.create([
-        { vendor_order_id: openOrder.id, vendor_id: kycVendor.id, gross_paise: 1000, commission_paise: 100, refund_paise: 50, net_paise: 850, status: "pending" },
-        { vendor_order_id: "dashboard-order-closed", vendor_id: kycVendor.id, gross_paise: 500, commission_paise: 50, refund_paise: 0, net_paise: 450, status: "paid" },
-        { vendor_order_id: "other-vendor-order", vendor_id: publicProductsVendor.id, gross_paise: 9000, commission_paise: 900, refund_paise: 0, net_paise: 8100, status: "pending" },
+        {
+          vendor_order_id: openOrder.id,
+          vendor_id: kycVendor.id,
+          gross_paise: 1000,
+          commission_paise: 100,
+          refund_paise: 50,
+          net_paise: 850,
+          status: "pending",
+        },
+        {
+          vendor_order_id: "dashboard-order-closed",
+          vendor_id: kycVendor.id,
+          gross_paise: 500,
+          commission_paise: 50,
+          refund_paise: 0,
+          net_paise: 450,
+          status: "paid",
+        },
+        {
+          vendor_order_id: "other-vendor-order",
+          vendor_id: publicProductsVendor.id,
+          gross_paise: 9000,
+          commission_paise: 900,
+          refund_paise: 0,
+          net_paise: 8100,
+          status: "pending",
+        },
       ]);
 
       const response = await fetch(`${BASE_URL}/vendors/me/dashboard`, {
@@ -380,7 +572,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${suspendedVendorToken}` },
       });
       expect(suspended.status).toBe(403);
-      expect(await suspended.json()).toHaveProperty("message", "Active vendor account required");
+      expect(await suspended.json()).toHaveProperty(
+        "message",
+        "Active vendor account required",
+      );
     });
 
     it("returns only the vendor's orders and items with pagination", async () => {
@@ -399,30 +594,60 @@ describe("Vendor Routes", () => {
         created_at: new Date("2025-02-01"),
       });
       await OrderItem.create([
-        { order_id: newest.order_id, product_id: "product-a", vendor_id: kycVendor.id, product_name: "Vendor Item", sku: "VENDOR-A", unit_price_paise: 1200, quantity: 2, discount_paise: 100, line_total_paise: 2300 },
-        { order_id: newest.order_id, product_id: "product-b", vendor_id: publicProductsVendor.id, product_name: "Other Vendor Item", sku: "OTHER-B", unit_price_paise: 900, quantity: 1, discount_paise: 0, line_total_paise: 900 },
-      ]);
-
-      const response = await fetch(`${BASE_URL}/vendors/me/orders?page=1&limit=1`, {
-        headers: { Authorization: `Bearer ${kycVendorToken}` },
-      });
-      expect(response.status).toBe(200);
-      const body: any = await response.json();
-      expect(body.pagination).toEqual({ page: 1, limit: 1, total: 2, pages: 2 });
-      expect(body.orders).toHaveLength(1);
-      expect(body.orders[0]).toMatchObject({
-        id: newest.id,
-        order_id: newest.order_id,
-        status: "placed",
-        items: [{
+        {
+          order_id: newest.order_id,
           product_id: "product-a",
+          vendor_id: kycVendor.id,
           product_name: "Vendor Item",
           sku: "VENDOR-A",
           unit_price_paise: 1200,
           quantity: 2,
           discount_paise: 100,
           line_total_paise: 2300,
-        }],
+        },
+        {
+          order_id: newest.order_id,
+          product_id: "product-b",
+          vendor_id: publicProductsVendor.id,
+          product_name: "Other Vendor Item",
+          sku: "OTHER-B",
+          unit_price_paise: 900,
+          quantity: 1,
+          discount_paise: 0,
+          line_total_paise: 900,
+        },
+      ]);
+
+      const response = await fetch(
+        `${BASE_URL}/vendors/me/orders?page=1&limit=1`,
+        {
+          headers: { Authorization: `Bearer ${kycVendorToken}` },
+        },
+      );
+      expect(response.status).toBe(200);
+      const body: any = await response.json();
+      expect(body.pagination).toEqual({
+        page: 1,
+        limit: 1,
+        total: 2,
+        pages: 2,
+      });
+      expect(body.orders).toHaveLength(1);
+      expect(body.orders[0]).toMatchObject({
+        id: newest.id,
+        order_id: newest.order_id,
+        status: "placed",
+        items: [
+          {
+            product_id: "product-a",
+            product_name: "Vendor Item",
+            sku: "VENDOR-A",
+            unit_price_paise: 1200,
+            quantity: 2,
+            discount_paise: 100,
+            line_total_paise: 2300,
+          },
+        ],
       });
       expect(body.orders[0].items).toHaveLength(1);
 
@@ -464,7 +689,10 @@ describe("Vendor Routes", () => {
         headers: { Authorization: `Bearer ${suspendedVendorToken}` },
       });
       expect(suspended.status).toBe(403);
-      expect(await suspended.json()).toHaveProperty("message", "Active vendor account required");
+      expect(await suspended.json()).toHaveProperty(
+        "message",
+        "Active vendor account required",
+      );
     });
 
     it("returns only the vendor's settlements with pagination and hides transfer identifiers", async () => {
@@ -501,12 +729,20 @@ describe("Vendor Routes", () => {
         status: "processing",
       });
 
-      const response = await fetch(`${BASE_URL}/vendors/me/settlements?page=2&limit=1`, {
-        headers: { Authorization: `Bearer ${kycVendorToken}` },
-      });
+      const response = await fetch(
+        `${BASE_URL}/vendors/me/settlements?page=2&limit=1`,
+        {
+          headers: { Authorization: `Bearer ${kycVendorToken}` },
+        },
+      );
       expect(response.status).toBe(200);
       const body: any = await response.json();
-      expect(body.pagination).toEqual({ page: 2, limit: 1, total: 2, pages: 2 });
+      expect(body.pagination).toEqual({
+        page: 2,
+        limit: 1,
+        total: 2,
+        pages: 2,
+      });
       expect(body.settlements).toHaveLength(1);
       expect(body.settlements[0]).toMatchObject({
         id: older.id,
@@ -519,9 +755,12 @@ describe("Vendor Routes", () => {
       });
       expect(body.settlements[0]).not.toHaveProperty("provider_transfer_id");
 
-      const invalidPage = await fetch(`${BASE_URL}/vendors/me/settlements?page=0`, {
-        headers: { Authorization: `Bearer ${kycVendorToken}` },
-      });
+      const invalidPage = await fetch(
+        `${BASE_URL}/vendors/me/settlements?page=0`,
+        {
+          headers: { Authorization: `Bearer ${kycVendorToken}` },
+        },
+      );
       expect(invalidPage.status).toBe(400);
     });
 
@@ -542,14 +781,20 @@ describe("Vendor Routes", () => {
     it("rejects malformed vendor IDs", async () => {
       const response = await fetch(`${BASE_URL}/vendors/not-a-vendor-id`);
       expect(response.status).toBe(400);
-      expect(await response.json()).toHaveProperty("message", "Invalid vendor id");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Invalid vendor id",
+      );
     });
 
     it("returns 404 for a vendor that does not exist", async () => {
       const missingId = new mongoose.Types.ObjectId().toString();
       const response = await fetch(`${BASE_URL}/vendors/${missingId}`);
       expect(response.status).toBe(404);
-      expect(await response.json()).toHaveProperty("message", "Vendor not found");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Vendor not found",
+      );
     });
 
     it("returns a public profile without exposing private vendor fields", async () => {
@@ -570,10 +815,17 @@ describe("Vendor Routes", () => {
     });
 
     it("hides profiles belonging to suspended vendor accounts", async () => {
-      const suspendedProfile = await Vendor.findOne({ user_id: suspendedVendor.id });
-      const response = await fetch(`${BASE_URL}/vendors/${suspendedProfile!.id}`);
+      const suspendedProfile = await Vendor.findOne({
+        user_id: suspendedVendor.id,
+      });
+      const response = await fetch(
+        `${BASE_URL}/vendors/${suspendedProfile!.id}`,
+      );
       expect(response.status).toBe(404);
-      expect(await response.json()).toHaveProperty("message", "Vendor not found");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Vendor not found",
+      );
     });
   });
 
@@ -582,23 +834,67 @@ describe("Vendor Routes", () => {
       const malformedId = await fetch(`${BASE_URL}/vendors/not-an-id/products`);
       expect(malformedId.status).toBe(400);
 
-      const invalidPage = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=0`);
+      const invalidPage = await fetch(
+        `${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=0`,
+      );
       expect(invalidPage.status).toBe(400);
 
-      const invalidLimit = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?limit=101`);
+      const invalidLimit = await fetch(
+        `${BASE_URL}/vendors/${publicProductsVendor.id}/products?limit=101`,
+      );
       expect(invalidLimit.status).toBe(400);
     });
 
     it("returns only active products with deterministic pagination", async () => {
       await Product.deleteMany({ vendor_id: publicProductsVendor.id });
       const products = await Product.create([
-        { vendor_id: publicProductsVendor.id, category_id: "category-a", name: "Listed One", description: "First", sku: "PUBLIC-1", price: 100, stock: 8, status: "active", created_at: new Date("2025-01-01") },
-        { vendor_id: publicProductsVendor.id, category_id: "category-a", name: "Listed Two", description: "Second", sku: "PUBLIC-2", price: 200, stock: 5, status: "active", created_at: new Date("2025-01-02") },
-        { vendor_id: publicProductsVendor.id, category_id: "category-a", name: "Draft", description: "Hidden", sku: "PUBLIC-3", price: 300, stock: 1, status: "draft" },
-        { vendor_id: publicProductsVendor.id, category_id: "category-a", name: "Archived", description: "Hidden", sku: "PUBLIC-4", price: 400, stock: 0, status: "archived" },
+        {
+          vendor_id: publicProductsVendor.id,
+          category_id: "category-a",
+          name: "Listed One",
+          description: "First",
+          sku: "PUBLIC-1",
+          price: 100,
+          stock: 8,
+          status: "active",
+          created_at: new Date("2025-01-01"),
+        },
+        {
+          vendor_id: publicProductsVendor.id,
+          category_id: "category-a",
+          name: "Listed Two",
+          description: "Second",
+          sku: "PUBLIC-2",
+          price: 200,
+          stock: 5,
+          status: "active",
+          created_at: new Date("2025-01-02"),
+        },
+        {
+          vendor_id: publicProductsVendor.id,
+          category_id: "category-a",
+          name: "Draft",
+          description: "Hidden",
+          sku: "PUBLIC-3",
+          price: 300,
+          stock: 1,
+          status: "draft",
+        },
+        {
+          vendor_id: publicProductsVendor.id,
+          category_id: "category-a",
+          name: "Archived",
+          description: "Hidden",
+          sku: "PUBLIC-4",
+          price: 400,
+          stock: 0,
+          status: "archived",
+        },
       ]);
 
-      const response = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=1&limit=1`);
+      const response = await fetch(
+        `${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=1&limit=1`,
+      );
       expect(response.status).toBe(200);
       const body: any = await response.json();
       expect(body.products).toHaveLength(1);
@@ -610,16 +906,27 @@ describe("Vendor Routes", () => {
       });
       expect(body.products[0]).not.toHaveProperty("sku");
       expect(body.products[0]).not.toHaveProperty("stock");
-      expect(body.pagination).toEqual({ page: 1, limit: 1, total: 2, pages: 2 });
+      expect(body.pagination).toEqual({
+        page: 1,
+        limit: 1,
+        total: 2,
+        pages: 2,
+      });
 
-      const secondPage = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=2&limit=1`);
-      const secondPageBody = await secondPage.json() as { products: Array<{ name: string }> };
+      const secondPage = await fetch(
+        `${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=2&limit=1`,
+      );
+      const secondPageBody = (await secondPage.json()) as {
+        products: Array<{ name: string }>;
+      };
       expect(secondPageBody.products[0]?.name).toBe("Listed One");
     });
 
     it("returns an empty paginated list when the page has no results", async () => {
       await Product.deleteMany({ vendor_id: publicProductsVendor.id });
-      const response = await fetch(`${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=3`);
+      const response = await fetch(
+        `${BASE_URL}/vendors/${publicProductsVendor.id}/products?page=3`,
+      );
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         products: [],
@@ -632,11 +939,17 @@ describe("Vendor Routes", () => {
       const unknown = await fetch(`${BASE_URL}/vendors/${unknownId}/products`);
       expect(unknown.status).toBe(404);
 
-      const unverified = await fetch(`${BASE_URL}/vendors/${kycVendor.id}/products`);
+      const unverified = await fetch(
+        `${BASE_URL}/vendors/${kycVendor.id}/products`,
+      );
       expect(unverified.status).toBe(404);
 
-      const suspendedProfile = await Vendor.findOne({ user_id: suspendedVendor.id });
-      const suspended = await fetch(`${BASE_URL}/vendors/${suspendedProfile!.id}/products`);
+      const suspendedProfile = await Vendor.findOne({
+        user_id: suspendedVendor.id,
+      });
+      const suspended = await fetch(
+        `${BASE_URL}/vendors/${suspendedProfile!.id}/products`,
+      );
       expect(suspended.status).toBe(404);
     });
   });
@@ -652,25 +965,37 @@ describe("Vendor Routes", () => {
 
       const customerResponse = await fetch(`${BASE_URL}/vendors/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${customerToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
         body: JSON.stringify({ display_name: "Updated Storefront" }),
       });
       expect(customerResponse.status).toBe(403);
 
       const missingProfileResponse = await fetch(`${BASE_URL}/vendors/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${vendorWithoutProfileToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${vendorWithoutProfileToken}`,
+        },
         body: JSON.stringify({ display_name: "Updated Storefront" }),
       });
       expect(missingProfileResponse.status).toBe(403);
 
       const suspendedResponse = await fetch(`${BASE_URL}/vendors/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${suspendedVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${suspendedVendorToken}`,
+        },
         body: JSON.stringify({ display_name: "Updated Storefront" }),
       });
       expect(suspendedResponse.status).toBe(403);
-      expect(await suspendedResponse.json()).toHaveProperty("message", "Active vendor account required");
+      expect(await suspendedResponse.json()).toHaveProperty(
+        "message",
+        "Active vendor account required",
+      );
     });
 
     it("rejects empty, blank, and protected profile fields", async () => {
@@ -688,11 +1013,17 @@ describe("Vendor Routes", () => {
       for (const payload of invalidPayloads) {
         const response = await fetch(`${BASE_URL}/vendors/me`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${kycVendorToken}`,
+          },
           body: JSON.stringify(payload),
         });
         expect(response.status).toBe(400);
-        expect(await response.json()).toHaveProperty("message", "Invalid parameters");
+        expect(await response.json()).toHaveProperty(
+          "message",
+          "Invalid parameters",
+        );
       }
     });
 
@@ -702,12 +1033,18 @@ describe("Vendor Routes", () => {
     ])("does not allow changing %s", async (_field, payload) => {
       const response = await fetch(`${BASE_URL}/vendors/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify(payload),
       });
 
       expect(response.status).toBe(400);
-      expect(await response.json()).toHaveProperty("message", "Invalid parameters");
+      expect(await response.json()).toHaveProperty(
+        "message",
+        "Invalid parameters",
+      );
 
       const savedVendor = await Vendor.findById(kycVendor.id);
       expect(savedVendor?.address).toBe("3 Main St");
@@ -717,7 +1054,10 @@ describe("Vendor Routes", () => {
     it("updates allowed fields and leaves address and postal code unchanged", async () => {
       const response = await fetch(`${BASE_URL}/vendors/me`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify({ display_name: "  Updated Storefront  " }),
       });
       expect(response.status).toBe(200);
@@ -802,7 +1142,10 @@ describe("Vendor Routes", () => {
 
       const customerResponse = await fetch(`${BASE_URL}/vendors/me/kyc`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${customerToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
         body: JSON.stringify({}),
       });
       expect(customerResponse.status).toBe(403);
@@ -812,20 +1155,39 @@ describe("Vendor Routes", () => {
       const ownPrefix = `kyc/${kycVendor.id}`;
       const invalidPayloads = [
         {},
-        { address_proof_key: `${ownPrefix}/same.png`, identity_proof_key: `${ownPrefix}/same.png` },
-        { address_proof_key: `${ownPrefix}/../other.png`, identity_proof_key: `${ownPrefix}/identity.png` },
-        { address_proof_key: `${ownPrefix}/address.png`, identity_proof_key: "kyc/another-vendor/identity.png" },
-        { address_proof_key: `${ownPrefix}/address.png`, identity_proof_key: `${ownPrefix}/identity.png`, role: "admin" },
+        {
+          address_proof_key: `${ownPrefix}/same.png`,
+          identity_proof_key: `${ownPrefix}/same.png`,
+        },
+        {
+          address_proof_key: `${ownPrefix}/../other.png`,
+          identity_proof_key: `${ownPrefix}/identity.png`,
+        },
+        {
+          address_proof_key: `${ownPrefix}/address.png`,
+          identity_proof_key: "kyc/another-vendor/identity.png",
+        },
+        {
+          address_proof_key: `${ownPrefix}/address.png`,
+          identity_proof_key: `${ownPrefix}/identity.png`,
+          role: "admin",
+        },
       ];
 
       for (const payload of invalidPayloads) {
         const response = await fetch(`${BASE_URL}/vendors/me/kyc`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${kycVendorToken}`,
+          },
           body: JSON.stringify(payload),
         });
         expect(response.status).toBe(400);
-        expect(await response.json()).toHaveProperty("message", "Invalid parameters");
+        expect(await response.json()).toHaveProperty(
+          "message",
+          "Invalid parameters",
+        );
       }
     });
 
@@ -836,7 +1198,10 @@ describe("Vendor Routes", () => {
       };
       const response = await fetch(`${BASE_URL}/vendors/me/kyc`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify(payload),
       });
       expect(response.status).toBe(201);
@@ -846,14 +1211,19 @@ describe("Vendor Routes", () => {
         documents: { address_proof: true, identity_proof: true },
       });
 
-      const savedSubmission = await VendorKyc.findOne({ vendor_id: kycVendor.id });
+      const savedSubmission = await VendorKyc.findOne({
+        vendor_id: kycVendor.id,
+      });
       expect(savedSubmission).toMatchObject({ ...payload, status: "pending" });
     });
 
     it("rejects duplicate submission while review is pending", async () => {
       const response = await fetch(`${BASE_URL}/vendors/me/kyc`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify({
           address_proof_key: `kyc/${kycVendor.id}/address/address-proof.png`,
           identity_proof_key: `kyc/${kycVendor.id}/identity/identity-proof.jpg`,
@@ -865,7 +1235,11 @@ describe("Vendor Routes", () => {
     it("allows resubmission after rejection and blocks resubmission after verification", async () => {
       await VendorKyc.updateOne(
         { vendor_id: kycVendor.id },
-        { status: "rejected", rejection_reason: "Image is unreadable", reviewed_at: new Date() }
+        {
+          status: "rejected",
+          rejection_reason: "Image is unreadable",
+          reviewed_at: new Date(),
+        },
       );
       await Vendor.updateOne({ _id: kycVendor.id }, { kyc_status: "rejected" });
 
@@ -875,22 +1249,36 @@ describe("Vendor Routes", () => {
       };
       const response = await fetch(`${BASE_URL}/vendors/me/kyc`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify(resubmission),
       });
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({ status: "pending" });
 
-      const resubmittedRecord = await VendorKyc.findOne({ vendor_id: kycVendor.id });
-      expect(resubmittedRecord).toMatchObject({ ...resubmission, status: "pending" });
+      const resubmittedRecord = await VendorKyc.findOne({
+        vendor_id: kycVendor.id,
+      });
+      expect(resubmittedRecord).toMatchObject({
+        ...resubmission,
+        status: "pending",
+      });
       expect(resubmittedRecord?.rejection_reason).toBeUndefined();
       expect((await Vendor.findById(kycVendor.id))?.kyc_status).toBe("pending");
 
-      await VendorKyc.updateOne({ vendor_id: kycVendor.id }, { status: "verified" });
+      await VendorKyc.updateOne(
+        { vendor_id: kycVendor.id },
+        { status: "verified" },
+      );
       await Vendor.updateOne({ _id: kycVendor.id }, { kyc_status: "verified" });
       const verifiedResponse = await fetch(`${BASE_URL}/vendors/me/kyc`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${kycVendorToken}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${kycVendorToken}`,
+        },
         body: JSON.stringify(resubmission),
       });
       expect(verifiedResponse.status).toBe(409);

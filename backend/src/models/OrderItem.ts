@@ -13,18 +13,16 @@ export interface IOrderItem extends Document {
   line_total_paise: number;
 }
 
-const OrderItemSchema = new Schema<IOrderItem>(
-  {
-    order_id: { type: String, required: true },
-    product_id: { type: String, required: true },
-    vendor_id: { type: String, required: true },
-    product_name: { type: String, required: true },
-    sku: { type: String, required: true },
-    unit_price_paise: { type: Number, required: true },
-    quantity: { type: Number, required: true },
-    discount_paise: { type: Number, required: true },
-    line_total_paise: { type: Number, required: true },
-  }
-);
+const OrderItemSchema = new Schema<IOrderItem>({
+  order_id: { type: String, required: true },
+  product_id: { type: String, required: true },
+  vendor_id: { type: String, required: true },
+  product_name: { type: String, required: true },
+  sku: { type: String, required: true },
+  unit_price_paise: { type: Number, required: true },
+  quantity: { type: Number, required: true },
+  discount_paise: { type: Number, required: true },
+  line_total_paise: { type: Number, required: true },
+});
 
 export default mongoose.model<IOrderItem>("OrderItem", OrderItemSchema);

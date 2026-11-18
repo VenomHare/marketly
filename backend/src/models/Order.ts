@@ -9,7 +9,12 @@ export interface IOrder extends Document {
   discount_paise: number;
   shipping_paise: number;
   total_paise: number;
-  payment_status: "pending" | "paid" | "failed" | "partially_refunded" | "refunded";
+  payment_status:
+    | "pending"
+    | "paid"
+    | "failed"
+    | "partially_refunded"
+    | "refunded";
   status: "pending" | "placed" | "cancelled" | "completed";
   created_at: Date;
   updated_at: Date;
@@ -24,12 +29,20 @@ const OrderSchema = new Schema<IOrder>(
     discount_paise: { type: Number, required: true },
     shipping_paise: { type: Number, required: true },
     total_paise: { type: Number, required: true },
-    payment_status: { type: String, enum: ["pending", "paid", "failed", "partially_refunded", "refunded"], default: "pending" },
-    status: { type: String, enum: ["pending", "placed", "cancelled", "completed"], default: "pending" },
+    payment_status: {
+      type: String,
+      enum: ["pending", "paid", "failed", "partially_refunded", "refunded"],
+      default: "pending",
+    },
+    status: {
+      type: String,
+      enum: ["pending", "placed", "cancelled", "completed"],
+      default: "pending",
+    },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
 export default mongoose.model<IOrder>("Order", OrderSchema);

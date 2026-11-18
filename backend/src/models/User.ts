@@ -16,12 +16,16 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password_hash: { type: String, required: true },
-    role: { type: String, enum: ["customer", "vendor", "admin"], default: "customer" },
+    role: {
+      type: String,
+      enum: ["customer", "vendor", "admin"],
+      default: "customer",
+    },
     status: { type: String, enum: ["active", "suspended"], default: "active" },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
 export default mongoose.model<IUser>("User", UserSchema);

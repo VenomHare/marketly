@@ -29,7 +29,7 @@ const AddressSchema = new Schema<IAddress>(
     contact_number: { type: String, required: true },
     created_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at" } }
+  { timestamps: { createdAt: "created_at" } },
 );
 
 export default mongoose.model<IAddress>("Address", AddressSchema);

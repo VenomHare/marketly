@@ -15,10 +15,10 @@ Order `uuid` path parameters are 24-character hexadecimal MongoDB IDs. Invalid I
 
 Lists the authenticated vendor's orders newest first. Each order contains `id`, `order_id`, `status`, `items`, `created_at`, and `updated_at`. Items contain `product_id`, `product_name`, `sku`, `unit_price_paise`, `quantity`, `discount_paise`, and `line_total_paise`.
 
-| Query | Type | Default | Constraints |
-| --- | --- | --- | --- |
-| `page` | integer | `1` | At least `1` |
-| `limit` | integer | `20` | `1` through `100` |
+| Query   | Type    | Default | Constraints       |
+| ------- | ------- | ------- | ----------------- |
+| `page`  | integer | `1`     | At least `1`      |
+| `limit` | integer | `20`    | `1` through `100` |
 
 Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response includes `orders` and `pagination` (`page`, `limit`, `total`, `pages`). An empty list has `pages: 0`.
 
@@ -32,14 +32,14 @@ Accepts exactly one JSON field, `status`, with one of `packed`, `shipped`, `in_t
 
 Allowed transitions:
 
-| Current status | Allowed next statuses |
-| --- | --- |
-| `placed` | `packed`, `cancelled` |
-| `packed` | `shipped`, `cancelled` |
-| `shipped` | `in_transit` |
-| `in_transit` | `delivered` |
-| `delivered` | None |
-| `cancelled` | None |
+| Current status | Allowed next statuses  |
+| -------------- | ---------------------- |
+| `placed`       | `packed`, `cancelled`  |
+| `packed`       | `shipped`, `cancelled` |
+| `shipped`      | `in_transit`           |
+| `in_transit`   | `delivered`            |
+| `delivered`    | None                   |
+| `cancelled`    | None                   |
 
 Malformed bodies, unknown fields, and unsupported statuses return `400 {"message":"Invalid parameters"}`. A valid status that is not an allowed next step returns `409 {"message":"Invalid status transition"}`.
 

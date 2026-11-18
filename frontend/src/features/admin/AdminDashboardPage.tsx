@@ -1,230 +1,2282 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, BadgeCheck, Box, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, LayoutDashboard, LogOut, Plus, RefreshCw, RotateCcw, ShieldCheck, Store, TicketPercent, Users, WalletCards, X } from 'lucide-react'
-import { Link, Navigate, NavLink, useParams } from 'react-router-dom'
-import { client } from '../../api/client'
-import { ConfirmActionModal } from '../../components/ui/ConfirmActionModal'
-import type { AuthUser } from '../../api/auth-storage'
-import { useDocumentTitle } from '../../utils/use-document-title'
-import { formatMoney } from '../../utils/format-money'
-import { useSignOut } from '../auth/hooks/useAuthLifecycle'
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Box,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  LayoutDashboard,
+  LogOut,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Store,
+  TicketPercent,
+  Users,
+  WalletCards,
+  X,
+} from "lucide-react";
+import { Link, Navigate, NavLink, useParams } from "react-router-dom";
+import { client } from "../../api/client";
+import { ConfirmActionModal } from "../../components/ui/ConfirmActionModal";
+import type { AuthUser } from "../../api/auth-storage";
+import { useDocumentTitle } from "../../utils/use-document-title";
+import { formatMoney } from "../../utils/format-money";
+import { useSignOut } from "../auth/hooks/useAuthLifecycle";
 
-type Overview = { users: number; vendors: number; products: number; orders: number; paid_revenue_paise: number }
-type Pagination = { page: number; limit: number; total: number; total_pages: number }
-type Vendor = { id: string; user_id: string; display_name: string; name: string; kyc_status: string; commission_rate_bps: number; bank_account_holder?: string | null; bank_account_last4?: string | null; bank_ifsc?: string | null; bank_name?: string | null; bank_account_type?: string | null; created_at: string }
-type BankAccountDetails = { bank_account_holder: string; bank_account_number: string; bank_ifsc: string; bank_name: string; bank_account_type: 'savings' | 'current' }
-type Order = { id: string; user_id: string; total_paise: number; payment_status: string; status: string; created_at: string }
-type Product = { id: string; vendor_id: string; name: string; sku: string; price: number; stock: number; status: string; created_at: string }
-type Coupon = { id: string; code: string; product_ids?: string[]; discount_type: 'percentage' | 'fixed'; discount_value: number; usage_limit?: number; usage_count: number; starts_at: string; expires_at: string; is_active: boolean }
-type Redemption = { id: string; code: string | null; order_id: string; user_id: string; discount_paise: number; redeemed_at: string }
-type RefundRequest = { id: string; payment_id: string; order_id: string; user_id: string; reason: string; status: 'requested' | 'processing' | 'refunded' | 'failed' | 'rejected' | 'cancelled'; amount_paise: number; created_at: string }
-type SettlementEntry = { id: string; vendor_order_id: string; order_id: string; gross_paise: number; commission_paise: number; refund_paise: number; net_paise: number; status: string; simulated_payout: boolean; provider_transfer_id?: string | null; provider_payment_id?: string | null; payment_amount_paise?: number | null; created_at: string; settled_at?: string }
-type Settlement = { id: string; vendor_id: string; vendor_name: string; bank_account_holder?: string | null; bank_account_last4?: string | null; bank_ifsc?: string | null; bank_name?: string | null; bank_account_type?: string | null; vendor_payout_balance_paise: number; gross_paise: number; commission_paise: number; commission_reversed_paise: number; refund_paise: number; net_paise: number; account_balance_paise: number; owed_to_vendor_paise: number; owed_to_marketly_paise: number; lifetime_net_paise: number; status: string; created_at: string; entries: SettlementEntry[] }
-type Kyc = { vendor_id: string; status: string; address_proof_key: string; identity_proof_key: string; submitted_at: string; rejection_reason?: string }
-type PageResponse<T> = { pagination: Pagination } & Record<string, T[]>
-type SettlementResponse = { pagination: Pagination; settlements: Settlement[]; summary?: { account_count: number; owed_to_vendor_paise: number; owed_to_marketly_paise: number; open_account_count: number } }
-type Section = 'overview' | 'orders' | 'products' | 'vendors' | 'coupons' | 'refunds' | 'settlements' | 'admins'
+type Overview = {
+  users: number;
+  vendors: number;
+  products: number;
+  orders: number;
+  paid_revenue_paise: number;
+};
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+};
+type Vendor = {
+  id: string;
+  user_id: string;
+  display_name: string;
+  name: string;
+  kyc_status: string;
+  commission_rate_bps: number;
+  bank_account_holder?: string | null;
+  bank_account_last4?: string | null;
+  bank_ifsc?: string | null;
+  bank_name?: string | null;
+  bank_account_type?: string | null;
+  created_at: string;
+};
+type BankAccountDetails = {
+  bank_account_holder: string;
+  bank_account_number: string;
+  bank_ifsc: string;
+  bank_name: string;
+  bank_account_type: "savings" | "current";
+};
+type Order = {
+  id: string;
+  user_id: string;
+  total_paise: number;
+  payment_status: string;
+  status: string;
+  created_at: string;
+};
+type Product = {
+  id: string;
+  vendor_id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stock: number;
+  status: string;
+  created_at: string;
+};
+type Coupon = {
+  id: string;
+  code: string;
+  product_ids?: string[];
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  usage_limit?: number;
+  usage_count: number;
+  starts_at: string;
+  expires_at: string;
+  is_active: boolean;
+};
+type Redemption = {
+  id: string;
+  code: string | null;
+  order_id: string;
+  user_id: string;
+  discount_paise: number;
+  redeemed_at: string;
+};
+type RefundRequest = {
+  id: string;
+  payment_id: string;
+  order_id: string;
+  user_id: string;
+  reason: string;
+  status:
+    | "requested"
+    | "processing"
+    | "refunded"
+    | "failed"
+    | "rejected"
+    | "cancelled";
+  amount_paise: number;
+  created_at: string;
+};
+type SettlementEntry = {
+  id: string;
+  vendor_order_id: string;
+  order_id: string;
+  gross_paise: number;
+  commission_paise: number;
+  refund_paise: number;
+  net_paise: number;
+  status: string;
+  simulated_payout: boolean;
+  provider_transfer_id?: string | null;
+  provider_payment_id?: string | null;
+  payment_amount_paise?: number | null;
+  created_at: string;
+  settled_at?: string;
+};
+type Settlement = {
+  id: string;
+  vendor_id: string;
+  vendor_name: string;
+  bank_account_holder?: string | null;
+  bank_account_last4?: string | null;
+  bank_ifsc?: string | null;
+  bank_name?: string | null;
+  bank_account_type?: string | null;
+  vendor_payout_balance_paise: number;
+  gross_paise: number;
+  commission_paise: number;
+  commission_reversed_paise: number;
+  refund_paise: number;
+  net_paise: number;
+  account_balance_paise: number;
+  owed_to_vendor_paise: number;
+  owed_to_marketly_paise: number;
+  lifetime_net_paise: number;
+  status: string;
+  created_at: string;
+  entries: SettlementEntry[];
+};
+type Kyc = {
+  vendor_id: string;
+  status: string;
+  address_proof_key: string;
+  identity_proof_key: string;
+  submitted_at: string;
+  rejection_reason?: string;
+};
+type PageResponse<T> = { pagination: Pagination } & Record<string, T[]>;
+type SettlementResponse = {
+  pagination: Pagination;
+  settlements: Settlement[];
+  summary?: {
+    account_count: number;
+    owed_to_vendor_paise: number;
+    owed_to_marketly_paise: number;
+    open_account_count: number;
+  };
+};
+type Section =
+  | "overview"
+  | "orders"
+  | "products"
+  | "vendors"
+  | "coupons"
+  | "refunds"
+  | "settlements"
+  | "admins";
 
-const sections: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'orders', label: 'Orders', icon: ClipboardList },
-  { id: 'products', label: 'Products', icon: Box },
-  { id: 'vendors', label: 'Vendors & KYC', icon: Store },
-  { id: 'coupons', label: 'Coupons', icon: TicketPercent },
-  { id: 'refunds', label: 'Refunds', icon: RotateCcw },
-  { id: 'settlements', label: 'Settlements', icon: WalletCards },
-  { id: 'admins', label: 'Administrators', icon: Users },
-]
-const date = (value: string) => new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium' }).format(new Date(value))
+const sections: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
+  [
+    { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "orders", label: "Orders", icon: ClipboardList },
+    { id: "products", label: "Products", icon: Box },
+    { id: "vendors", label: "Vendors & KYC", icon: Store },
+    { id: "coupons", label: "Coupons", icon: TicketPercent },
+    { id: "refunds", label: "Refunds", icon: RotateCcw },
+    { id: "settlements", label: "Settlements", icon: WalletCards },
+    { id: "admins", label: "Administrators", icon: Users },
+  ];
+const date = (value: string) =>
+  new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(
+    new Date(value),
+  );
 function errorMessage(error: unknown) {
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const data = (error as { response?: { data?: { message?: string } } }).response?.data
-    if (data?.message) return data.message
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const data = (error as { response?: { data?: { message?: string } } })
+      .response?.data;
+    if (data?.message) return data.message;
   }
-  if (error instanceof Error) return error.message
-  return 'We could not complete that request. Please try again.'
+  if (error instanceof Error) return error.message;
+  return "We could not complete that request. Please try again.";
 }
 
 export function AdminDashboardPage() {
-  const { section: rawSection } = useParams()
-  const section: Section = sections.some(item => item.id === rawSection) ? rawSection as Section : 'overview'
-  const queryClient = useQueryClient()
-  const signOut = useSignOut()
-  const [page, setPage] = useState(1)
-  const [activeKyc, setActiveKyc] = useState<string | null>(null)
-  const [reviewToConfirm, setReviewToConfirm] = useState<{ status: 'verified' | 'rejected'; rejection_reason?: string } | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [adminError, setAdminError] = useState('')
-  const [couponError, setCouponError] = useState('')
-  const [refundAction, setRefundAction] = useState<{ id: string; decision: 'approve' | 'reject'; amount_paise: number } | null>(null)
-  const [refundError, setRefundError] = useState('')
-  const [commissionError, setCommissionError] = useState('')
-  const [payoutError, setPayoutError] = useState('')
-  const [payoutSuccess, setPayoutSuccess] = useState('')
-  const [confirmSettlementReconcile, setConfirmSettlementReconcile] = useState(false)
-  const [settlementAccountToConfirm, setSettlementAccountToConfirm] = useState<Settlement | null>(null)
-  const me = useQuery({ queryKey: ['auth', 'me'], queryFn: async () => (await client.get<AuthUser>('/me')).data, retry: false })
-  const isAdmin = me.data?.role === 'admin' && me.data.status === 'active'
-  useDocumentTitle(`${sections.find(item => item.id === section)?.label ?? 'Overview'} · Admin`)
-  const overview = useQuery({ queryKey: ['admin', 'overview'], queryFn: async () => (await client.get<Overview>('/admin/analytics/overview')).data, enabled: isAdmin, staleTime: 30_000 })
+  const { section: rawSection } = useParams();
+  const section: Section = sections.some((item) => item.id === rawSection)
+    ? (rawSection as Section)
+    : "overview";
+  const queryClient = useQueryClient();
+  const signOut = useSignOut();
+  const [page, setPage] = useState(1);
+  const [activeKyc, setActiveKyc] = useState<string | null>(null);
+  const [reviewToConfirm, setReviewToConfirm] = useState<{
+    status: "verified" | "rejected";
+    rejection_reason?: string;
+  } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [adminError, setAdminError] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [refundAction, setRefundAction] = useState<{
+    id: string;
+    decision: "approve" | "reject";
+    amount_paise: number;
+  } | null>(null);
+  const [refundError, setRefundError] = useState("");
+  const [commissionError, setCommissionError] = useState("");
+  const [payoutError, setPayoutError] = useState("");
+  const [payoutSuccess, setPayoutSuccess] = useState("");
+  const [confirmSettlementReconcile, setConfirmSettlementReconcile] =
+    useState(false);
+  const [settlementAccountToConfirm, setSettlementAccountToConfirm] =
+    useState<Settlement | null>(null);
+  const me = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => (await client.get<AuthUser>("/me")).data,
+    retry: false,
+  });
+  const isAdmin = me.data?.role === "admin" && me.data.status === "active";
+  useDocumentTitle(
+    `${sections.find((item) => item.id === section)?.label ?? "Overview"} · Admin`,
+  );
+  const overview = useQuery({
+    queryKey: ["admin", "overview"],
+    queryFn: async () =>
+      (await client.get<Overview>("/admin/analytics/overview")).data,
+    enabled: isAdmin,
+    staleTime: 30_000,
+  });
   const rows = useQuery({
-    queryKey: ['admin', section, page],
-    enabled: isAdmin && ['orders', 'products', 'vendors', 'admins'].includes(section),
+    queryKey: ["admin", section, page],
+    enabled:
+      isAdmin && ["orders", "products", "vendors", "admins"].includes(section),
     queryFn: async () => {
-      if (section === 'orders') return (await client.get<PageResponse<Order>>(`/admin/orders?page=${page}&limit=20`)).data
-      if (section === 'products') return (await client.get<PageResponse<Product>>(`/admin/products?page=${page}&limit=20`)).data
-      if (section === 'vendors') return (await client.get<PageResponse<Vendor>>(`/admin/vendors?page=${page}&limit=20`)).data
-      const admins = (await client.get<AuthUser[]>('/admin/users?role=admin')).data
-      return { users: admins, pagination: { page: 1, limit: admins.length || 1, total: admins.length, total_pages: 1 } }
+      if (section === "orders")
+        return (
+          await client.get<PageResponse<Order>>(
+            `/admin/orders?page=${page}&limit=20`,
+          )
+        ).data;
+      if (section === "products")
+        return (
+          await client.get<PageResponse<Product>>(
+            `/admin/products?page=${page}&limit=20`,
+          )
+        ).data;
+      if (section === "vendors")
+        return (
+          await client.get<PageResponse<Vendor>>(
+            `/admin/vendors?page=${page}&limit=20`,
+          )
+        ).data;
+      const admins = (await client.get<AuthUser[]>("/admin/users?role=admin"))
+        .data;
+      return {
+        users: admins,
+        pagination: {
+          page: 1,
+          limit: admins.length || 1,
+          total: admins.length,
+          total_pages: 1,
+        },
+      };
     },
-  })
-  const coupons = useQuery({ queryKey: ['admin', 'coupons'], queryFn: async () => (await client.get<PageResponse<Coupon>>('/admin/coupons?page=1&limit=100')).data, enabled: isAdmin && section === 'coupons' })
-  const redemptions = useQuery({ queryKey: ['admin', 'coupon-redemptions'], queryFn: async () => (await client.get<PageResponse<Redemption>>('/admin/coupon-redemptions?page=1&limit=100')).data, enabled: isAdmin && section === 'coupons' })
-  const createCoupon = useMutation({ mutationFn: async (body: Record<string, unknown>) => (await client.post('/admin/coupons', body)).data, onSuccess: async () => { setCouponError(''); await queryClient.invalidateQueries({ queryKey: ['admin', 'coupons'] }) }, onError: error => setCouponError(errorMessage(error)) })
-  const refunds = useQuery({ queryKey: ['admin', 'refund-requests'], queryFn: async () => (await client.get<{ refund_requests: RefundRequest[] }>('/admin/refund-requests')).data.refund_requests, enabled: isAdmin && section === 'refunds' })
-  const settlements = useQuery({ queryKey: ['admin', 'settlements', page], queryFn: async () => (await client.get<SettlementResponse>(`/admin/settlements?page=${page}&limit=20`)).data, enabled: isAdmin && section === 'settlements' })
-  const reviewRefund = useMutation({ mutationFn: async ({ id, decision }: { id: string; decision: 'approve' | 'reject' }) => (await client.post(`/admin/refund-requests/${id}/${decision}`, {})).data, onSuccess: async () => { setRefundError(''); await queryClient.invalidateQueries({ queryKey: ['admin', 'refund-requests'] }); setRefundAction(null) }, onError: error => setRefundError(errorMessage(error)) })
-  const updateCommission = useMutation({ mutationFn: async ({ vendorId, commission_rate_bps }: { vendorId: string; commission_rate_bps: number }) => (await client.patch(`/admin/vendors/${vendorId}/commission`, { commission_rate_bps })).data, onSuccess: async () => { setCommissionError(''); await queryClient.invalidateQueries({ queryKey: ['admin', 'vendors'] }) }, onError: error => setCommissionError(errorMessage(error)) })
-  const reconcileSettlements = useMutation({ mutationFn: async () => (await client.post<{ created: number }>('/admin/settlements/reconcile', { confirm: true })).data, onSuccess: async () => { setConfirmSettlementReconcile(false); await queryClient.invalidateQueries({ queryKey: ['admin', 'settlements'] }) } })
-  const releaseSettlement = useMutation({ mutationFn: async (settlement: Settlement) => (await client.post<{ amount_paise: number; offset_paise: number; entries: number; simulated: boolean }>(`/admin/settlements/accounts/${settlement.vendor_id}/settle`, {})).data, onSuccess: async (result, settlement) => { setSettlementAccountToConfirm(null); setPayoutError(''); setPayoutSuccess(result.amount_paise > 0 ? `Recorded a simulated payout of ${formatMoney(result.amount_paise)} for ${settlement.vendor_name}. No funds were transferred.` : `Applied ${formatMoney(result.offset_paise)} against ${settlement.vendor_name}’s outstanding balance. No funds were transferred.`); await queryClient.invalidateQueries({ queryKey: ['admin', 'settlements'] }) }, onError: async error => { setSettlementAccountToConfirm(null); setPayoutSuccess(''); setPayoutError(errorMessage(error)); await queryClient.invalidateQueries({ queryKey: ['admin', 'settlements'] }) } })
-  const updateBankAccount = useMutation({ mutationFn: async ({ vendorId, details }: { vendorId: string; details: BankAccountDetails }) => (await client.patch(`/admin/vendors/${vendorId}/bank-account`, details)).data, onSuccess: async () => { setCommissionError(''); await Promise.all([queryClient.invalidateQueries({ queryKey: ['admin', 'vendors'] }), queryClient.invalidateQueries({ queryKey: ['admin', 'settlements'] })]) }, onError: error => setCommissionError(errorMessage(error)) })
-  const kyc = useQuery({ queryKey: ['admin', 'kyc', activeKyc], queryFn: async () => (await client.get<Kyc>(`/admin/vendors/${activeKyc}/kyc`)).data, enabled: isAdmin && Boolean(activeKyc) })
+  });
+  const coupons = useQuery({
+    queryKey: ["admin", "coupons"],
+    queryFn: async () =>
+      (
+        await client.get<PageResponse<Coupon>>(
+          "/admin/coupons?page=1&limit=100",
+        )
+      ).data,
+    enabled: isAdmin && section === "coupons",
+  });
+  const redemptions = useQuery({
+    queryKey: ["admin", "coupon-redemptions"],
+    queryFn: async () =>
+      (
+        await client.get<PageResponse<Redemption>>(
+          "/admin/coupon-redemptions?page=1&limit=100",
+        )
+      ).data,
+    enabled: isAdmin && section === "coupons",
+  });
+  const createCoupon = useMutation({
+    mutationFn: async (body: Record<string, unknown>) =>
+      (await client.post("/admin/coupons", body)).data,
+    onSuccess: async () => {
+      setCouponError("");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "coupons"] });
+    },
+    onError: (error) => setCouponError(errorMessage(error)),
+  });
+  const refunds = useQuery({
+    queryKey: ["admin", "refund-requests"],
+    queryFn: async () =>
+      (
+        await client.get<{ refund_requests: RefundRequest[] }>(
+          "/admin/refund-requests",
+        )
+      ).data.refund_requests,
+    enabled: isAdmin && section === "refunds",
+  });
+  const settlements = useQuery({
+    queryKey: ["admin", "settlements", page],
+    queryFn: async () =>
+      (
+        await client.get<SettlementResponse>(
+          `/admin/settlements?page=${page}&limit=20`,
+        )
+      ).data,
+    enabled: isAdmin && section === "settlements",
+  });
+  const reviewRefund = useMutation({
+    mutationFn: async ({
+      id,
+      decision,
+    }: {
+      id: string;
+      decision: "approve" | "reject";
+    }) =>
+      (await client.post(`/admin/refund-requests/${id}/${decision}`, {})).data,
+    onSuccess: async () => {
+      setRefundError("");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "refund-requests"],
+      });
+      setRefundAction(null);
+    },
+    onError: (error) => setRefundError(errorMessage(error)),
+  });
+  const updateCommission = useMutation({
+    mutationFn: async ({
+      vendorId,
+      commission_rate_bps,
+    }: {
+      vendorId: string;
+      commission_rate_bps: number;
+    }) =>
+      (
+        await client.patch(`/admin/vendors/${vendorId}/commission`, {
+          commission_rate_bps,
+        })
+      ).data,
+    onSuccess: async () => {
+      setCommissionError("");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] });
+    },
+    onError: (error) => setCommissionError(errorMessage(error)),
+  });
+  const reconcileSettlements = useMutation({
+    mutationFn: async () =>
+      (
+        await client.post<{ created: number }>("/admin/settlements/reconcile", {
+          confirm: true,
+        })
+      ).data,
+    onSuccess: async () => {
+      setConfirmSettlementReconcile(false);
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "settlements"],
+      });
+    },
+  });
+  const releaseSettlement = useMutation({
+    mutationFn: async (settlement: Settlement) =>
+      (
+        await client.post<{
+          amount_paise: number;
+          offset_paise: number;
+          entries: number;
+          simulated: boolean;
+        }>(`/admin/settlements/accounts/${settlement.vendor_id}/settle`, {})
+      ).data,
+    onSuccess: async (result, settlement) => {
+      setSettlementAccountToConfirm(null);
+      setPayoutError("");
+      setPayoutSuccess(
+        result.amount_paise > 0
+          ? `Recorded a simulated payout of ${formatMoney(result.amount_paise)} for ${settlement.vendor_name}. No funds were transferred.`
+          : `Applied ${formatMoney(result.offset_paise)} against ${settlement.vendor_name}’s outstanding balance. No funds were transferred.`,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "settlements"],
+      });
+    },
+    onError: async (error) => {
+      setSettlementAccountToConfirm(null);
+      setPayoutSuccess("");
+      setPayoutError(errorMessage(error));
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "settlements"],
+      });
+    },
+  });
+  const updateBankAccount = useMutation({
+    mutationFn: async ({
+      vendorId,
+      details,
+    }: {
+      vendorId: string;
+      details: BankAccountDetails;
+    }) =>
+      (await client.patch(`/admin/vendors/${vendorId}/bank-account`, details))
+        .data,
+    onSuccess: async () => {
+      setCommissionError("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "settlements"] }),
+      ]);
+    },
+    onError: (error) => setCommissionError(errorMessage(error)),
+  });
+  const kyc = useQuery({
+    queryKey: ["admin", "kyc", activeKyc],
+    queryFn: async () =>
+      (await client.get<Kyc>(`/admin/vendors/${activeKyc}/kyc`)).data,
+    enabled: isAdmin && Boolean(activeKyc),
+  });
   const review = useMutation({
-    mutationFn: async ({ vendorId, status, rejection_reason }: { vendorId: string; status: 'verified' | 'rejected'; rejection_reason?: string }) => (await client.patch(`/admin/vendors/${vendorId}/verify`, { status, ...(rejection_reason ? { rejection_reason } : {}) })).data,
-    onSuccess: async () => { setActiveKyc(null); setRejectReason(''); await Promise.all([queryClient.invalidateQueries({ queryKey: ['admin', 'vendors'] }), queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })]) },
-  })
+    mutationFn: async ({
+      vendorId,
+      status,
+      rejection_reason,
+    }: {
+      vendorId: string;
+      status: "verified" | "rejected";
+      rejection_reason?: string;
+    }) =>
+      (
+        await client.patch(`/admin/vendors/${vendorId}/verify`, {
+          status,
+          ...(rejection_reason ? { rejection_reason } : {}),
+        })
+      ).data,
+    onSuccess: async () => {
+      setActiveKyc(null);
+      setRejectReason("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "vendors"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "overview"] }),
+      ]);
+    },
+  });
   const createAdmin = useMutation({
-    mutationFn: async (body: { name: string; email: string; password: string }) => (await client.post('/admin/users/admin', body)).data,
-    onSuccess: async () => { setAdminError(''); await queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] }) },
-    onError: error => setAdminError(errorMessage(error)),
-  })
+    mutationFn: async (body: {
+      name: string;
+      email: string;
+      password: string;
+    }) => (await client.post("/admin/users/admin", body)).data,
+    onSuccess: async () => {
+      setAdminError("");
+      await queryClient.invalidateQueries({ queryKey: ["admin", "admins"] });
+    },
+    onError: (error) => setAdminError(errorMessage(error)),
+  });
 
-  if (me.isPending) return <div className="admin-loading"><span className="account-spinner" /> Checking administrator access…</div>
-  if (!isAdmin) return <Navigate to="/" replace />
-
-  const adminUser = me.data!
-  const pendingVendors = ((((rows.data as Record<string, unknown> | undefined)?.vendors as Vendor[] | undefined) ?? [])).filter(vendor => vendor.kyc_status === 'pending')
-  const tableRows = rows.data
-
-  return <main className="admin-shell">
-    <aside className="admin-sidebar">
-      <Link to="/" className="admin-brand"><span className="wordmark">Marketly<span>.</span></span><small>ADMIN STUDIO</small></Link>
-      <div className="admin-profile"><span><ShieldCheck size={17} /></span><div><strong>{adminUser.name}</strong><small>Administrator</small></div></div>
-      <span className="admin-nav-label">WORKSPACE</span>
-      <nav aria-label="Admin sections">{sections.map(item => <NavLink key={item.id} to={item.id === 'overview' ? '/admin' : `/admin/${item.id}`} end={item.id === 'overview'} className={({ isActive }) => `admin-nav-link ${isActive ? 'active' : ''}`}><item.icon size={17} />{item.label}{item.id === 'vendors' && pendingVendors.length > 0 && <span className="admin-nav-count">{pendingVendors.length}</span>}</NavLink>)}</nav>
-      <div className="admin-sidebar-bottom"><Link to="/" className="admin-store-link"><ArrowRight size={15} /> View storefront</Link><button onClick={() => void signOut()}><LogOut size={15} /> Sign out</button></div>
-    </aside>
-    <section className="admin-main">
-      <header className="admin-topbar"><div><span>Marketly / Administration</span><strong>{sections.find(item => item.id === section)?.label}</strong></div><span className="admin-secure"><BadgeCheck size={15} /> Secure admin session</span></header>
-      <div className="admin-content">
-        <div className="admin-page-heading"><div><span className="vendor-eyebrow">ADMINISTRATION</span><h1>{section === 'overview' ? 'Good to see you, ' + adminUser.name.split(' ')[0] : sections.find(item => item.id === section)?.label}</h1><p>{section === 'overview' ? 'Here’s what’s happening across your marketplace.' : section === 'vendors' ? 'Review seller applications and keep verification moving.' : section === 'admins' ? 'Manage trusted people with access to Marketly operations.' : `Review and manage marketplace ${section}.`}</p></div>{section === 'admins' && <a href="#add-admin" className="button primary"><Plus size={16} /> Add administrator</a>}</div>
-        {section === 'overview' && <OverviewSection data={overview.data} isLoading={overview.isPending} error={overview.error} onRetry={() => void overview.refetch()} />}
-        {section === 'orders' && <OrdersSection data={tableRows as PageResponse<Order> | undefined} loading={rows.isPending} error={rows.error} page={page} setPage={setPage} />}
-        {section === 'products' && <ProductsSection data={tableRows as PageResponse<Product> | undefined} loading={rows.isPending} error={rows.error} page={page} setPage={setPage} />}
-        {section === 'vendors' && <><VendorsSection data={tableRows as PageResponse<Vendor> | undefined} loading={rows.isPending} error={rows.error} page={page} setPage={setPage} onReview={setActiveKyc} onCommission={(vendorId, rate) => updateCommission.mutate({ vendorId, commission_rate_bps: Math.round(rate * 100) })} savingCommission={updateCommission.isPending} onBankAccount={(vendorId, details) => updateBankAccount.mutate({ vendorId, details })} savingBankAccount={updateBankAccount.isPending} /><p className="admin-muted">Commission rates apply to orders delivered after the rate is saved. Bank account numbers are encrypted at rest and only the last four digits are displayed.</p>{commissionError && <p className="admin-error" role="alert">{commissionError}</p>}</>}
-        {section === 'coupons' && <CouponsSection coupons={coupons.data?.coupons ?? []} redemptions={redemptions.data?.redemptions ?? []} loading={coupons.isPending || redemptions.isPending} error={coupons.error ?? redemptions.error} onCreate={body => createCoupon.mutateAsync(body)} creating={createCoupon.isPending} createError={couponError} />}
-        {section === 'refunds' && <RefundsSection requests={refunds.data ?? []} loading={refunds.isPending} error={refunds.error} onReview={request => setRefundAction(request)} />}
-        {section === 'settlements' && <><SettlementsSection data={settlements.data} loading={settlements.isPending} error={settlements.error} page={page} setPage={setPage} onReconcile={() => setConfirmSettlementReconcile(true)} reconciling={reconcileSettlements.isPending} reconcileError={reconcileSettlements.error ? errorMessage(reconcileSettlements.error) : ''} onRelease={settlement => { setPayoutError(''); setPayoutSuccess(''); setSettlementAccountToConfirm(settlement) }} releasing={releaseSettlement.isPending} /><p className="admin-ledger-notice">Demo mode: recording a settlement updates the seller ledger, but does not send money to a bank.</p>{payoutError && <p className="admin-error" role="alert">{payoutError}</p>}{payoutSuccess && <p className="admin-success" role="status">{payoutSuccess}</p>}</>}
-        {section === 'admins' && <AdminsSection data={tableRows as PageResponse<AuthUser> | undefined} loading={rows.isPending} onCreate={data => createAdmin.mutate(data)} submitting={createAdmin.isPending} error={adminError} />}
+  if (me.isPending)
+    return (
+      <div className="admin-loading">
+        <span className="account-spinner" /> Checking administrator access…
       </div>
-    </section>
-    {activeKyc && <div className="admin-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !review.isPending) setActiveKyc(null) }}><section className="admin-modal" role="dialog" aria-modal="true" aria-labelledby="kyc-title"><header><div><span className="vendor-eyebrow">SELLER VERIFICATION</span><h2 id="kyc-title">Review KYC submission</h2></div><button aria-label="Close dialog" onClick={() => setActiveKyc(null)}><X size={18} /></button></header>{kyc.isPending ? <p className="admin-muted">Loading submission…</p> : kyc.isError ? <p className="admin-error" role="alert">Could not load this KYC submission. {errorMessage(kyc.error)}</p> : kyc.data && <><p className="admin-modal-intro">Submitted {date(kyc.data.submitted_at)}. Open both documents and confirm they meet your verification requirements before approving.</p><div className="admin-document-list"><Document label="Address proof" objectKey={kyc.data.address_proof_key} vendorId={activeKyc} document="address" /><Document label="Identity proof" objectKey={kyc.data.identity_proof_key} vendorId={activeKyc} document="identity" /></div><label className="admin-field">Reason if you reject<textarea maxLength={500} rows={3} value={rejectReason} onChange={event => setRejectReason(event.target.value)} placeholder="Tell the seller what needs to be corrected" /></label>{review.error && <p className="admin-error" role="alert">{errorMessage(review.error)}</p>}<div className="admin-modal-actions"><button className="button neutral" onClick={() => { if (rejectReason.trim().length >= 3) setReviewToConfirm({ status: 'rejected', rejection_reason: rejectReason.trim() }) }} disabled={review.isPending || rejectReason.trim().length < 3}>Reject</button><button className="button primary" onClick={() => setReviewToConfirm({ status: 'verified' })} disabled={review.isPending}>Approve seller</button></div></>}</section></div>}
-    {reviewToConfirm && activeKyc && <ConfirmActionModal title={reviewToConfirm.status === 'rejected' ? 'Reject this seller application?' : 'Approve this seller?'} description={reviewToConfirm.status === 'rejected' ? 'The vendor will be notified and must submit updated documents before accessing verified seller features.' : 'This approves the vendor’s verification and unlocks seller features for the account.'} confirmLabel={reviewToConfirm.status === 'rejected' ? 'Reject application' : 'Approve seller'} tone={reviewToConfirm.status === 'rejected' ? 'danger' : 'primary'} busy={review.isPending} onCancel={() => setReviewToConfirm(null)} onConfirm={() => { const decision = reviewToConfirm; setReviewToConfirm(null); review.mutate({ vendorId: activeKyc, ...decision }) }} />}
-    {refundAction && <ConfirmActionModal title={refundAction.decision === 'approve' ? 'Approve this refund?' : 'Reject this refund?'} description={refundAction.decision === 'approve' ? `This sends a full refund of ${formatMoney(refundAction.amount_paise)} to the customer through Razorpay. Seller settlement amounts are not automatically adjusted by the current system.` : 'This rejects the customer’s refund request. No refund will be sent.'} confirmLabel={refundAction.decision === 'approve' ? 'Approve refund' : 'Reject refund'} tone={refundAction.decision === 'approve' ? 'primary' : 'danger'} busy={reviewRefund.isPending} onCancel={() => { setRefundAction(null); setRefundError('') }} onConfirm={() => reviewRefund.mutate({ id: refundAction.id, decision: refundAction.decision })} />}
-    {refundError && <div className="admin-toast-error" role="alert">Refund review failed: {refundError}<button onClick={() => setRefundError('')} aria-label="Dismiss error"><X size={15} /></button></div>}
-    {confirmSettlementReconcile && <ConfirmActionModal title="Create missing settlements?" description="This creates pending settlement records for delivered, paid orders that do not have one yet. It uses each vendor’s current commission rate for those historical orders." confirmLabel="Create settlements" tone="primary" busy={reconcileSettlements.isPending} onCancel={() => setConfirmSettlementReconcile(false)} onConfirm={() => reconcileSettlements.mutate()} />}
-    {settlementAccountToConfirm && <ConfirmActionModal title={`Settle ${settlementAccountToConfirm.vendor_name}’s account?`} description={settlementAccountToConfirm.owed_to_vendor_paise > 0 ? `This records a simulated payout of ${formatMoney(settlementAccountToConfirm.owed_to_vendor_paise)} and closes ${settlementAccountToConfirm.entries.filter(entry => ['pending', 'failed'].includes(entry.status) && entry.net_paise > 0).length} open order balance(s). No money will be transferred.` : `This applies ${formatMoney(settlementAccountToConfirm.net_paise)} in open seller earnings against their outstanding balance. No money will be transferred.`} confirmLabel="Record account settlement" tone="primary" busy={releaseSettlement.isPending} onCancel={() => setSettlementAccountToConfirm(null)} onConfirm={() => releaseSettlement.mutate(settlementAccountToConfirm)} />}
-  </main>
-}
+    );
+  if (!isAdmin) return <Navigate to="/" replace />;
 
-function OverviewSection({ data, isLoading, error, onRetry }: { data?: Overview; isLoading: boolean; error: Error | null; onRetry: () => void }) {
-  if (isLoading) return <div className="admin-stat-grid">{[0, 1, 2, 3].map(i => <div className="admin-stat skeleton" key={i} />)}</div>
-  if (error || !data) return <div className="admin-panel admin-empty" role="alert"><p>We couldn’t load the marketplace overview.</p><button className="button neutral" onClick={onRetry}><RefreshCw size={15} /> Try again</button></div>
-  const stats = [{ label: 'Total orders', value: data.orders.toLocaleString('en-IN'), icon: ClipboardList, note: 'Across the marketplace' }, { label: 'Active vendors', value: data.vendors.toLocaleString('en-IN'), icon: Store, note: 'Seller accounts' }, { label: 'Products', value: data.products.toLocaleString('en-IN'), icon: Box, note: 'In the catalog' }, { label: 'Paid revenue', value: formatMoney(data.paid_revenue_paise), icon: BadgeCheck, note: `${data.users.toLocaleString('en-IN')} registered accounts` }]
-  return <><div className="admin-stat-grid">{stats.map(item => <article className="admin-stat" key={item.label}><span className="admin-stat-icon"><item.icon size={18} /></span><small>{item.label}</small><strong>{item.value}</strong><span>{item.note}</span></article>)}</div><section className="admin-panel admin-shortcuts"><div className="admin-panel-heading"><div><h2>Quick access</h2><p>Jump into the parts of your marketplace that need attention.</p></div></div><div className="admin-shortcut-grid"><Link to="/admin/orders"><ClipboardList /><span><strong>Review orders</strong><small>Check payment and fulfillment status</small></span><ChevronRight /></Link><Link to="/admin/products"><Box /><span><strong>Browse products</strong><small>Review catalog health and stock</small></span><ChevronRight /></Link><Link to="/admin/vendors"><Store /><span><strong>Verify sellers</strong><small>Review pending KYC applications</small></span><ChevronRight /></Link></div></section></>
-}
+  const adminUser = me.data!;
+  const pendingVendors = (
+    ((rows.data as Record<string, unknown> | undefined)?.vendors as
+      | Vendor[]
+      | undefined) ?? []
+  ).filter((vendor) => vendor.kyc_status === "pending");
+  const tableRows = rows.data;
 
-function OrdersSection({ data, loading, error, page, setPage }: { data: PageResponse<Order> | undefined; loading: boolean; error: Error | null; page: number; setPage: (page: number) => void }) {
-  return <DataPanel title="Recent orders" description="Order totals and payment state. Status changes remain available through the secured admin API." loading={loading} error={error} empty={!data?.orders.length} pagination={data?.pagination} page={page} setPage={setPage}><table><thead><tr><th>Order</th><th>Customer ID</th><th>Date</th><th>Payment</th><th>Status</th><th>Total</th></tr></thead><tbody>{data?.orders?.map(order => <tr key={order.id}><td className="admin-mono">#{order.id.slice(-8).toUpperCase()}</td><td className="admin-mono">{order.user_id.slice(-8)}</td><td>{date(order.created_at)}</td><td><Status value={order.payment_status} /></td><td><Status value={order.status} /></td><td>{formatMoney(order.total_paise)}</td></tr>)}</tbody></table></DataPanel>
-}
-function ProductsSection({ data, loading, error, page, setPage }: { data: PageResponse<Product> | undefined; loading: boolean; error: Error | null; page: number; setPage: (page: number) => void }) {
-  return <DataPanel title="Marketplace catalog" description="Products from all sellers, including stock and publication state." loading={loading} error={error} empty={!data?.products.length} pagination={data?.pagination} page={page} setPage={setPage}><table><thead><tr><th>Product</th><th>SKU</th><th>Seller ID</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead><tbody>{data?.products?.map(product => <tr key={product.id}><td><strong>{product.name}</strong><small className="admin-subline">Added {date(product.created_at)}</small></td><td className="admin-mono">{product.sku}</td><td className="admin-mono">{product.vendor_id.slice(-8)}</td><td>{formatMoney(product.price)}</td><td>{product.stock}</td><td><Status value={product.status} /></td></tr>)}</tbody></table></DataPanel>
-}
-function VendorsSection({ data, loading, error, page, setPage, onReview, onCommission, savingCommission, onBankAccount, savingBankAccount }: { data: PageResponse<Vendor> | undefined; loading: boolean; error: Error | null; page: number; setPage: (page: number) => void; onReview: (id: string) => void; onCommission: (vendorId: string, ratePercent: number) => void; savingCommission: boolean; onBankAccount: (vendorId: string, details: BankAccountDetails) => void; savingBankAccount: boolean }) {
-  return <DataPanel title="Seller applications" description="Review seller verification, commission rates, and masked bank payout details." loading={loading} error={error} empty={!data?.vendors.length} pagination={data?.pagination} page={page} setPage={setPage}><table><thead><tr><th>Seller</th><th>Account ID</th><th>Submitted</th><th>Verification</th><th>Commission rate</th><th>Bank payout details</th><th>Action</th></tr></thead><tbody>{data?.vendors?.map(vendor => <tr key={vendor.id}><td><strong>{vendor.display_name || vendor.name}</strong><small className="admin-subline">{vendor.name}</small></td><td className="admin-mono">{vendor.id.slice(-8)}</td><td>{date(vendor.created_at)}</td><td><Status value={vendor.kyc_status} /></td><td><form className="admin-commission-form" onSubmit={event => { event.preventDefault(); const value = Number(new FormData(event.currentTarget).get('rate')); if (Number.isFinite(value) && value >= 0 && value <= 100) onCommission(vendor.id, value) }}><input name="rate" aria-label={`Commission rate for ${vendor.display_name}`} type="number" min="0" max="100" step="0.01" defaultValue={(vendor.commission_rate_bps / 100).toFixed(2)} /><span>%</span><button className="admin-row-action" disabled={savingCommission}>Save</button></form></td><td><strong>{vendor.bank_account_holder ?? 'Not set'}</strong><small className="admin-subline">{vendor.bank_name ?? ''} · ****{vendor.bank_account_last4 ?? '----'}</small><form className="admin-commission-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); onBankAccount(vendor.id, { bank_account_holder: String(form.get('holder')).trim(), bank_account_number: String(form.get('account')).trim(), bank_ifsc: String(form.get('ifsc')).trim().toUpperCase(), bank_name: String(form.get('bank')).trim(), bank_account_type: String(form.get('type')) as BankAccountDetails['bank_account_type'] }) }}><input name="holder" aria-label={`Bank account holder for ${vendor.display_name}`} placeholder="Account holder" defaultValue={vendor.bank_account_holder ?? ''} required /><input name="account" aria-label={`New bank account number for ${vendor.display_name}`} placeholder="Account number" inputMode="numeric" pattern="[0-9]{8,18}" required /><input name="ifsc" aria-label={`Bank IFSC for ${vendor.display_name}`} placeholder="IFSC" defaultValue={vendor.bank_ifsc ?? ''} pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" required /><input name="bank" aria-label={`Bank name for ${vendor.display_name}`} placeholder="Bank name" defaultValue={vendor.bank_name ?? ''} required /><select name="type" aria-label={`Bank account type for ${vendor.display_name}`} defaultValue={vendor.bank_account_type ?? 'savings'}><option value="savings">Savings</option><option value="current">Current</option></select><button className="admin-row-action" disabled={savingBankAccount}>Save bank details</button></form></td><td>{vendor.kyc_status === 'pending' ? <button className="admin-row-action" onClick={() => onReview(vendor.id)}>Review KYC <ChevronRight size={14} /></button> : <span className="admin-muted">—</span>}</td></tr>)}</tbody></table></DataPanel>
-}
-function RefundsSection({ requests, loading, error, onReview }: { requests: RefundRequest[]; loading: boolean; error: Error | null; onReview: (action: { id: string; decision: 'approve' | 'reject'; amount_paise: number }) => void }) {
-  return <DataPanel title="Customer refund requests" description="Approval refunds the full customer payment. Seller net is deducted, Marketly commission is reversed, and any amount already paid becomes a future seller payout offset." loading={loading} error={error} empty={!requests.length}><table><thead><tr><th>Order</th><th>Customer ID</th><th>Reason</th><th>Amount</th><th>Requested</th><th>Status</th><th>Review</th></tr></thead><tbody>{requests.map(request => <tr key={request.id}><td className="admin-mono">#{request.order_id.slice(-8).toUpperCase()}</td><td className="admin-mono">{request.user_id.slice(-8)}</td><td><strong>{request.reason}</strong></td><td>{formatMoney(request.amount_paise)}</td><td>{date(request.created_at)}</td><td><Status value={request.status} /></td><td>{request.status === 'requested' ? <div className="admin-refund-actions"><button className="admin-row-action" onClick={() => onReview({ id: request.id, decision: 'approve', amount_paise: request.amount_paise })}>Approve</button><button className="admin-row-action danger" onClick={() => onReview({ id: request.id, decision: 'reject', amount_paise: request.amount_paise })}>Reject</button></div> : <span className="admin-muted">Reviewed</span>}</td></tr>)}</tbody></table></DataPanel>
-}
-function SettlementsSection({ data, loading, error, page, setPage, onReconcile, reconciling, reconcileError, onRelease, releasing }: { data?: SettlementResponse; loading: boolean; error: Error | null; page: number; setPage: (page: number) => void; onReconcile: () => void; reconciling: boolean; reconcileError: string; onRelease: (settlement: Settlement) => void; releasing: boolean }) {
-  const [filter, setFilter] = useState<'all' | 'payout' | 'debt' | 'settled'>('all')
-  const accounts = data?.settlements ?? []
-  const filtered = accounts.filter(account => filter === 'payout' ? account.owed_to_vendor_paise > 0 : filter === 'debt' ? account.owed_to_marketly_paise > 0 : filter === 'settled' ? account.owed_to_vendor_paise === 0 && account.owed_to_marketly_paise === 0 : true)
-  const payoutTotal = data?.summary?.owed_to_vendor_paise ?? accounts.reduce((sum, account) => sum + account.owed_to_vendor_paise, 0)
-  const debtTotal = data?.summary?.owed_to_marketly_paise ?? accounts.reduce((sum, account) => sum + account.owed_to_marketly_paise, 0)
-  const openCount = data?.summary?.open_account_count ?? accounts.filter(account => account.entries.some(entry => ['pending', 'failed'].includes(entry.status) && entry.net_paise > 0)).length
-  return <>
-    <div className="admin-ledger-summary">
-      <article><span>Marketly owes sellers</span><strong>{formatMoney(payoutTotal)}</strong><small>Total positive balance across seller accounts</small></article>
-      <article><span>Sellers owe Marketly</span><strong>{formatMoney(debtTotal)}</strong><small>Carried forward from refunds</small></article>
-      <article><span>Accounts with open orders</span><strong>{openCount}</strong><small>Delivered earnings awaiting settlement</small></article>
-    </div>
-    <div className="admin-ledger-toolbar"><div><h2>Seller accounts</h2><p>Each account combines unpaid order earnings and any balance carried forward.</p></div><button className="button neutral" onClick={onReconcile} disabled={reconciling}>{reconciling ? 'Checking…' : 'Find missing deliveries'}</button></div>
-    {reconcileError && <p className="admin-error" role="alert">{reconcileError}</p>}
-    <div className="admin-ledger-filters" role="group" aria-label="Filter seller accounts">
-      {([{ id: 'all', label: 'All accounts' }, { id: 'payout', label: 'Marketly owes' }, { id: 'debt', label: 'Seller owes' }, { id: 'settled', label: 'Settled' }] as const).map(item => <button key={item.id} type="button" className={filter === item.id ? 'active' : ''} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>{item.label}</button>)}
-    </div>
-    <DataPanel title="Account balances" description="Positive balance means payable to the seller. Negative balance means the seller owes Marketly." loading={loading} error={error} empty={!filtered.length} pagination={data?.pagination} page={page} setPage={setPage}>
-      <div className="admin-ledger-list">{filtered.map(account => {
-        const openEntries = account.entries.filter(entry => ['pending', 'failed'].includes(entry.status) && entry.net_paise > 0)
-        const canSettle = openEntries.length > 0 && (account.owed_to_vendor_paise === 0 || Boolean(account.bank_account_last4 && account.bank_ifsc))
-        const label = account.owed_to_vendor_paise > 0 ? 'Payable to seller' : account.owed_to_marketly_paise > 0 ? 'Seller owes Marketly' : 'Account settled'
-        const balance = account.owed_to_vendor_paise - account.owed_to_marketly_paise
-        return <details className="admin-ledger-account" key={account.id}>
-          <summary>
-            <div className="admin-ledger-seller"><strong>{account.vendor_name}</strong><small>{account.entries.length} order entries · {account.bank_name ?? 'Bank details not set'} {account.bank_account_last4 ? `· •••• ${account.bank_account_last4}` : ''}</small></div>
-            <div className={`admin-ledger-balance ${balance < 0 ? 'debit' : balance > 0 ? 'credit' : ''}`}><small>{label}</small><strong>{formatMoney(Math.abs(balance))}</strong></div>
-            <span className="admin-ledger-toggle">View account <ChevronDown size={16} aria-hidden="true" /></span>
-          </summary>
-          <div className="admin-ledger-detail">
-            <div className="admin-ledger-breakdown"><span>Unpaid order earnings <strong>{formatMoney(account.net_paise)}</strong></span><span>Carried balance <strong>{formatMoney(account.vendor_payout_balance_paise)}</strong></span><span>Gross sales <strong>{formatMoney(account.gross_paise)}</strong></span><span>Commission retained <strong>{formatMoney(account.commission_paise - account.commission_reversed_paise)}</strong></span><span>Seller refunds <strong>{formatMoney(account.refund_paise)}</strong></span></div>
-            {openEntries.length > 0 && <div className="admin-ledger-action"><div><strong>{formatMoney(account.owed_to_vendor_paise)} payable now</strong><small>{openEntries.length} open delivered order(s). {account.owed_to_marketly_paise > 0 ? `The seller balance offsets ${formatMoney(account.owed_to_marketly_paise)}.` : 'Ready for admin settlement.'}</small></div><button className="button primary" type="button" disabled={releasing || !canSettle} title={!canSettle ? 'Add bank details in the seller profile before recording a payout.' : undefined} onClick={() => onRelease(account)}>{releasing ? 'Recording…' : account.owed_to_vendor_paise > 0 ? 'Review payout' : 'Apply seller balance'}</button></div>}
-            {!openEntries.length && <p className="admin-ledger-closed">No order earnings are waiting to be settled.</p>}
-            <div className="admin-ledger-history"><h3>Account activity</h3><div className="admin-table-wrap"><table><thead><tr><th>Order</th><th>Added</th><th>Gross</th><th>Commission</th><th>Seller net</th><th>Entry status</th></tr></thead><tbody>{account.entries.map(entry => <tr key={entry.id}><td className="admin-mono">#{entry.order_id.slice(-8).toUpperCase()}</td><td>{date(entry.created_at)}</td><td>{formatMoney(entry.gross_paise)}</td><td>{formatMoney(entry.commission_paise)}</td><td>{formatMoney(entry.net_paise)}</td><td><Status value={entry.simulated_payout ? 'recorded_simulated' : entry.status} />{entry.provider_transfer_id && <small className="admin-subline admin-mono">{entry.provider_transfer_id}</small>}</td></tr>)}</tbody></table></div></div>
+  return (
+    <main className="admin-shell">
+      <aside className="admin-sidebar">
+        <Link to="/" className="admin-brand">
+          <span className="wordmark">
+            Marketly<span>.</span>
+          </span>
+          <small>ADMIN STUDIO</small>
+        </Link>
+        <div className="admin-profile">
+          <span>
+            <ShieldCheck size={17} />
+          </span>
+          <div>
+            <strong>{adminUser.name}</strong>
+            <small>Administrator</small>
           </div>
-        </details>
-      })}</div>
-    </DataPanel>
-  </>
-}
-function CouponsSection({ coupons, redemptions, loading, error, onCreate, creating, createError }: { coupons: Coupon[]; redemptions: Redemption[]; loading: boolean; error: Error | null; onCreate: (body: Record<string, unknown>) => Promise<unknown>; creating: boolean; createError: string }) {
-  const [activeTab, setActiveTab] = useState<'coupons' | 'usage'>('coupons')
-  const [showCreate, setShowCreate] = useState(false)
-  return <>
-    <div className="admin-coupon-toolbar"><div className="admin-coupon-tabs" role="tablist" aria-label="Coupon administration"><button role="tab" aria-selected={activeTab === 'coupons'} className={activeTab === 'coupons' ? 'active' : ''} onClick={() => setActiveTab('coupons')}><TicketPercent size={15} /> Coupons</button><button role="tab" aria-selected={activeTab === 'usage'} className={activeTab === 'usage' ? 'active' : ''} onClick={() => setActiveTab('usage')}><ClipboardList size={15} /> Usage</button></div>{activeTab === 'coupons' && <button className="button primary" onClick={() => setShowCreate(true)}><Plus size={15} /> Create coupon</button>}</div>
-    {activeTab === 'coupons' ? <DataPanel title="Coupons" description="Usage counts reflect recorded redemptions. Coupons at their limit cannot be applied again." loading={loading} error={error} empty={!coupons.length}><table><thead><tr><th>Code</th><th>Discount</th><th>Usage</th><th>Validity</th><th>Status</th></tr></thead><tbody>{coupons.map(coupon => { const exhausted = coupon.usage_limit !== undefined && coupon.usage_count >= coupon.usage_limit; const status = exhausted ? 'limit reached' : !coupon.is_active ? 'inactive' : new Date(coupon.expires_at).getTime() <= Date.now() ? 'expired' : new Date(coupon.starts_at).getTime() > Date.now() ? 'scheduled' : 'active'; return <tr key={coupon.id}><td><strong>{coupon.code}</strong></td><td>{coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : formatMoney(coupon.discount_value)}</td><td>{coupon.usage_count}{coupon.usage_limit !== undefined ? ` / ${coupon.usage_limit}` : ' / ∞'}</td><td>{date(coupon.starts_at)} – {date(coupon.expires_at)}</td><td><Status value={status} /></td></tr> })}</tbody></table></DataPanel> : <DataPanel title="Coupon usage" description="Recent coupon redemptions with linked order and customer IDs." loading={loading} error={error} empty={!redemptions.length}><table><thead><tr><th>Coupon</th><th>Order</th><th>Customer ID</th><th>Discount</th><th>Redeemed</th></tr></thead><tbody>{redemptions.map(entry => <tr key={entry.id}><td><strong>{entry.code ?? 'Coupon removed'}</strong></td><td className="admin-mono">#{entry.order_id.slice(-8).toUpperCase()}</td><td className="admin-mono">{entry.user_id.slice(-8)}</td><td>{formatMoney(entry.discount_paise)}</td><td>{date(entry.redeemed_at)}</td></tr>)}</tbody></table></DataPanel>}
-    {showCreate && <div className="admin-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !creating) setShowCreate(false) }}><section className="admin-modal admin-coupon-modal" role="dialog" aria-modal="true" aria-labelledby="create-coupon-title"><header><div><span className="vendor-eyebrow">COUPON MANAGEMENT</span><h2 id="create-coupon-title">Create a coupon</h2></div><button aria-label="Close dialog" disabled={creating} onClick={() => setShowCreate(false)}><X size={18} /></button></header><p className="admin-modal-intro">Publish a marketplace coupon with an optional total usage limit.</p><form onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); const type = String(form.get('discount_type')) as Coupon['discount_type']; const rawValue = Number(form.get('discount_value')); const body = { code: String(form.get('code')).trim(), discount_type: type, discount_value: type === 'fixed' ? Math.round(rawValue * 100) : rawValue, starts_at: new Date(String(form.get('starts_at'))).toISOString(), expires_at: new Date(String(form.get('expires_at'))).toISOString(), ...(String(form.get('usage_limit')) ? { usage_limit: Number(form.get('usage_limit')) } : {}) }; void onCreate(body).then(() => setShowCreate(false)).catch(() => {}) }}><label className="admin-field">Coupon code<input name="code" required maxLength={100} pattern="[A-Za-z0-9_-]+" placeholder="WELCOME10" /></label><label className="admin-field">Discount type<select name="discount_type"><option value="percentage">Percentage</option><option value="fixed">Fixed amount (₹)</option></select></label><label className="admin-field">Discount value<input name="discount_value" type="number" required min="0.01" step="0.01" /></label><label className="admin-field">Total usage limit<input name="usage_limit" type="number" min="1" step="1" placeholder="Unlimited" /></label><label className="admin-field">Starts at<input name="starts_at" type="datetime-local" required /></label><label className="admin-field">Expires at<input name="expires_at" type="datetime-local" required /></label>{createError && <p className="admin-error" role="alert">{createError}</p>}<div className="admin-modal-actions"><button type="button" className="button neutral" disabled={creating} onClick={() => setShowCreate(false)}>Cancel</button><button className="button primary" type="submit" disabled={creating}>{creating ? 'Creating…' : <><Plus size={15} /> Create coupon</>}</button></div></form></section></div>}
-  </>
-}
-function AdminsSection({ data, loading, onCreate, submitting, error }: { data: (PageResponse<AuthUser> | undefined); loading: boolean; onCreate: (data: { name: string; email: string; password: string }) => void; submitting: boolean; error: string }) {
-  const [pendingAdmin, setPendingAdmin] = useState<{ name: string; email: string; password: string } | null>(null)
-  return <><DataPanel title="Administrator access" description="Only active administrators can enter this workspace or provision new admin accounts." loading={loading} error={null} empty={!data?.users.length}><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Account state</th></tr></thead><tbody>{data?.users?.map(admin => <tr key={admin.id}><td><strong>{admin.name}</strong></td><td>{admin.email}</td><td><Status value="admin" /></td><td><Status value={admin.status} /></td></tr>)}</tbody></table></DataPanel><section id="add-admin" className="admin-panel admin-create-panel"><div className="admin-panel-heading"><div><h2>Add an administrator</h2><p>Create a separate account with full marketplace access.</p></div><span className="admin-create-icon"><ShieldCheck size={18} /></span></div><form id="add-admin-form" onSubmit={event => { event.preventDefault(); const form = new FormData(event.currentTarget); setPendingAdmin({ name: String(form.get('name')).trim(), email: String(form.get('email')).trim(), password: String(form.get('password')) }) }}><label className="admin-field">Full name<input name="name" minLength={2} maxLength={100} autoComplete="name" required /></label><label className="admin-field">Email<input name="email" type="email" maxLength={254} autoComplete="email" required /></label><label className="admin-field">Password<input name="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" required /><small>Use at least 12 characters and share it through a secure channel.</small></label>{error && <p className="admin-error" role="alert">{error}</p>}<button className="button primary" type="submit" disabled={submitting}>{submitting ? 'Creating account…' : <><Plus size={15} /> Create administrator</>}</button></form></section>{pendingAdmin && <ConfirmActionModal title="Create this administrator account?" description="This grants full marketplace access to the account. Make sure the name and email are correct before continuing." confirmLabel="Create administrator" tone="primary" busy={submitting} onCancel={() => setPendingAdmin(null)} onConfirm={() => { const account = pendingAdmin; setPendingAdmin(null); onCreate(account); document.getElementById('add-admin-form')?.closest('form')?.reset() }} />}</>
-}
-function DataPanel({ title, description, loading, error, empty, pagination, page, setPage, children }: { title: string; description: string; loading: boolean; error: Error | null; empty: boolean; pagination?: Pagination; page?: number; setPage?: (page: number) => void; children: React.ReactNode }) {
-  return <section className="admin-panel"><div className="admin-panel-heading"><div><h2>{title}</h2><p>{description}</p></div>{pagination && <span className="admin-total">{pagination.total.toLocaleString('en-IN')} records</span>}</div>{loading ? <div className="admin-table-loading skeleton" /> : error ? <div className="admin-empty" role="alert"><p>We couldn’t load this list.</p><span>{errorMessage(error)}</span></div> : empty ? <div className="admin-empty"><Store size={24} /><strong>Nothing here yet</strong><span>There are no records to show.</span></div> : <><div className="admin-table-wrap">{children}</div>{pagination && page && setPage && pagination.total_pages > 1 && <div className="admin-pagination"><span>Page {page} of {pagination.total_pages}</span><div><button aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft size={16} /></button><button aria-label="Next page" disabled={page >= pagination.total_pages} onClick={() => setPage(page + 1)}><ChevronRight size={16} /></button></div></div>}</>}</section>
-}
-function Status({ value }: { value: string }) { return <span className={`admin-status ${value.toLowerCase().replaceAll('_', '-')}`}>{value.replaceAll('_', ' ')}</span> }
-function Document({ label, objectKey, vendorId, document }: { label: string; objectKey: string; vendorId: string; document: 'address' | 'identity' }) {
-  const [url, setUrl] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  async function openDocument() {
-    setLoading(true); setError('')
-    try { const { data } = await client.get<{ url: string }>(`/admin/vendors/${vendorId}/kyc/documents/${document}/access`); setUrl(data.url) }
-    catch (cause) { setError(errorMessage(cause)) }
-    finally { setLoading(false) }
-  }
-  return <div className="admin-document"><span><BadgeCheck size={17} /></span><div><strong>{label}</strong><small>{objectKey.split('/').pop()}</small>{url ? <a href={url} target="_blank" rel="noopener noreferrer">Open document</a> : <button type="button" onClick={() => void openDocument()} disabled={loading}>{loading ? 'Preparing…' : 'Get secure preview'}</button>}{error && <small className="admin-error">{error}</small>}</div></div>
+        </div>
+        <span className="admin-nav-label">WORKSPACE</span>
+        <nav aria-label="Admin sections">
+          {sections.map((item) => (
+            <NavLink
+              key={item.id}
+              to={item.id === "overview" ? "/admin" : `/admin/${item.id}`}
+              end={item.id === "overview"}
+              className={({ isActive }) =>
+                `admin-nav-link ${isActive ? "active" : ""}`
+              }
+            >
+              <item.icon size={17} />
+              {item.label}
+              {item.id === "vendors" && pendingVendors.length > 0 && (
+                <span className="admin-nav-count">{pendingVendors.length}</span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="admin-sidebar-bottom">
+          <Link to="/" className="admin-store-link">
+            <ArrowRight size={15} /> View storefront
+          </Link>
+          <button onClick={() => void signOut()}>
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
+      </aside>
+      <section className="admin-main">
+        <header className="admin-topbar">
+          <div>
+            <span>Marketly / Administration</span>
+            <strong>
+              {sections.find((item) => item.id === section)?.label}
+            </strong>
+          </div>
+          <span className="admin-secure">
+            <BadgeCheck size={15} /> Secure admin session
+          </span>
+        </header>
+        <div className="admin-content">
+          <div className="admin-page-heading">
+            <div>
+              <span className="vendor-eyebrow">ADMINISTRATION</span>
+              <h1>
+                {section === "overview"
+                  ? "Good to see you, " + adminUser.name.split(" ")[0]
+                  : sections.find((item) => item.id === section)?.label}
+              </h1>
+              <p>
+                {section === "overview"
+                  ? "Here’s what’s happening across your marketplace."
+                  : section === "vendors"
+                    ? "Review seller applications and keep verification moving."
+                    : section === "admins"
+                      ? "Manage trusted people with access to Marketly operations."
+                      : `Review and manage marketplace ${section}.`}
+              </p>
+            </div>
+            {section === "admins" && (
+              <a href="#add-admin" className="button primary">
+                <Plus size={16} /> Add administrator
+              </a>
+            )}
+          </div>
+          {section === "overview" && (
+            <OverviewSection
+              data={overview.data}
+              isLoading={overview.isPending}
+              error={overview.error}
+              onRetry={() => void overview.refetch()}
+            />
+          )}
+          {section === "orders" && (
+            <OrdersSection
+              data={tableRows as PageResponse<Order> | undefined}
+              loading={rows.isPending}
+              error={rows.error}
+              page={page}
+              setPage={setPage}
+            />
+          )}
+          {section === "products" && (
+            <ProductsSection
+              data={tableRows as PageResponse<Product> | undefined}
+              loading={rows.isPending}
+              error={rows.error}
+              page={page}
+              setPage={setPage}
+            />
+          )}
+          {section === "vendors" && (
+            <>
+              <VendorsSection
+                data={tableRows as PageResponse<Vendor> | undefined}
+                loading={rows.isPending}
+                error={rows.error}
+                page={page}
+                setPage={setPage}
+                onReview={setActiveKyc}
+                onCommission={(vendorId, rate) =>
+                  updateCommission.mutate({
+                    vendorId,
+                    commission_rate_bps: Math.round(rate * 100),
+                  })
+                }
+                savingCommission={updateCommission.isPending}
+                onBankAccount={(vendorId, details) =>
+                  updateBankAccount.mutate({ vendorId, details })
+                }
+                savingBankAccount={updateBankAccount.isPending}
+              />
+              <p className="admin-muted">
+                Commission rates apply to orders delivered after the rate is
+                saved. Bank account numbers are encrypted at rest and only the
+                last four digits are displayed.
+              </p>
+              {commissionError && (
+                <p className="admin-error" role="alert">
+                  {commissionError}
+                </p>
+              )}
+            </>
+          )}
+          {section === "coupons" && (
+            <CouponsSection
+              coupons={coupons.data?.coupons ?? []}
+              redemptions={redemptions.data?.redemptions ?? []}
+              loading={coupons.isPending || redemptions.isPending}
+              error={coupons.error ?? redemptions.error}
+              onCreate={(body) => createCoupon.mutateAsync(body)}
+              creating={createCoupon.isPending}
+              createError={couponError}
+            />
+          )}
+          {section === "refunds" && (
+            <RefundsSection
+              requests={refunds.data ?? []}
+              loading={refunds.isPending}
+              error={refunds.error}
+              onReview={(request) => setRefundAction(request)}
+            />
+          )}
+          {section === "settlements" && (
+            <>
+              <SettlementsSection
+                data={settlements.data}
+                loading={settlements.isPending}
+                error={settlements.error}
+                page={page}
+                setPage={setPage}
+                onReconcile={() => setConfirmSettlementReconcile(true)}
+                reconciling={reconcileSettlements.isPending}
+                reconcileError={
+                  reconcileSettlements.error
+                    ? errorMessage(reconcileSettlements.error)
+                    : ""
+                }
+                onRelease={(settlement) => {
+                  setPayoutError("");
+                  setPayoutSuccess("");
+                  setSettlementAccountToConfirm(settlement);
+                }}
+                releasing={releaseSettlement.isPending}
+              />
+              <p className="admin-ledger-notice">
+                Demo mode: recording a settlement updates the seller ledger, but
+                does not send money to a bank.
+              </p>
+              {payoutError && (
+                <p className="admin-error" role="alert">
+                  {payoutError}
+                </p>
+              )}
+              {payoutSuccess && (
+                <p className="admin-success" role="status">
+                  {payoutSuccess}
+                </p>
+              )}
+            </>
+          )}
+          {section === "admins" && (
+            <AdminsSection
+              data={tableRows as PageResponse<AuthUser> | undefined}
+              loading={rows.isPending}
+              onCreate={(data) => createAdmin.mutate(data)}
+              submitting={createAdmin.isPending}
+              error={adminError}
+            />
+          )}
+        </div>
+      </section>
+      {activeKyc && (
+        <div
+          className="admin-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !review.isPending)
+              setActiveKyc(null);
+          }}
+        >
+          <section
+            className="admin-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kyc-title"
+          >
+            <header>
+              <div>
+                <span className="vendor-eyebrow">SELLER VERIFICATION</span>
+                <h2 id="kyc-title">Review KYC submission</h2>
+              </div>
+              <button
+                aria-label="Close dialog"
+                onClick={() => setActiveKyc(null)}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            {kyc.isPending ? (
+              <p className="admin-muted">Loading submission…</p>
+            ) : kyc.isError ? (
+              <p className="admin-error" role="alert">
+                Could not load this KYC submission. {errorMessage(kyc.error)}
+              </p>
+            ) : (
+              kyc.data && (
+                <>
+                  <p className="admin-modal-intro">
+                    Submitted {date(kyc.data.submitted_at)}. Open both documents
+                    and confirm they meet your verification requirements before
+                    approving.
+                  </p>
+                  <div className="admin-document-list">
+                    <Document
+                      label="Address proof"
+                      objectKey={kyc.data.address_proof_key}
+                      vendorId={activeKyc}
+                      document="address"
+                    />
+                    <Document
+                      label="Identity proof"
+                      objectKey={kyc.data.identity_proof_key}
+                      vendorId={activeKyc}
+                      document="identity"
+                    />
+                  </div>
+                  <label className="admin-field">
+                    Reason if you reject
+                    <textarea
+                      maxLength={500}
+                      rows={3}
+                      value={rejectReason}
+                      onChange={(event) => setRejectReason(event.target.value)}
+                      placeholder="Tell the seller what needs to be corrected"
+                    />
+                  </label>
+                  {review.error && (
+                    <p className="admin-error" role="alert">
+                      {errorMessage(review.error)}
+                    </p>
+                  )}
+                  <div className="admin-modal-actions">
+                    <button
+                      className="button neutral"
+                      onClick={() => {
+                        if (rejectReason.trim().length >= 3)
+                          setReviewToConfirm({
+                            status: "rejected",
+                            rejection_reason: rejectReason.trim(),
+                          });
+                      }}
+                      disabled={
+                        review.isPending || rejectReason.trim().length < 3
+                      }
+                    >
+                      Reject
+                    </button>
+                    <button
+                      className="button primary"
+                      onClick={() => setReviewToConfirm({ status: "verified" })}
+                      disabled={review.isPending}
+                    >
+                      Approve seller
+                    </button>
+                  </div>
+                </>
+              )
+            )}
+          </section>
+        </div>
+      )}
+      {reviewToConfirm && activeKyc && (
+        <ConfirmActionModal
+          title={
+            reviewToConfirm.status === "rejected"
+              ? "Reject this seller application?"
+              : "Approve this seller?"
+          }
+          description={
+            reviewToConfirm.status === "rejected"
+              ? "The vendor will be notified and must submit updated documents before accessing verified seller features."
+              : "This approves the vendor’s verification and unlocks seller features for the account."
+          }
+          confirmLabel={
+            reviewToConfirm.status === "rejected"
+              ? "Reject application"
+              : "Approve seller"
+          }
+          tone={reviewToConfirm.status === "rejected" ? "danger" : "primary"}
+          busy={review.isPending}
+          onCancel={() => setReviewToConfirm(null)}
+          onConfirm={() => {
+            const decision = reviewToConfirm;
+            setReviewToConfirm(null);
+            review.mutate({ vendorId: activeKyc, ...decision });
+          }}
+        />
+      )}
+      {refundAction && (
+        <ConfirmActionModal
+          title={
+            refundAction.decision === "approve"
+              ? "Approve this refund?"
+              : "Reject this refund?"
+          }
+          description={
+            refundAction.decision === "approve"
+              ? `This sends a full refund of ${formatMoney(refundAction.amount_paise)} to the customer through Razorpay. Seller settlement amounts are not automatically adjusted by the current system.`
+              : "This rejects the customer’s refund request. No refund will be sent."
+          }
+          confirmLabel={
+            refundAction.decision === "approve"
+              ? "Approve refund"
+              : "Reject refund"
+          }
+          tone={refundAction.decision === "approve" ? "primary" : "danger"}
+          busy={reviewRefund.isPending}
+          onCancel={() => {
+            setRefundAction(null);
+            setRefundError("");
+          }}
+          onConfirm={() =>
+            reviewRefund.mutate({
+              id: refundAction.id,
+              decision: refundAction.decision,
+            })
+          }
+        />
+      )}
+      {refundError && (
+        <div className="admin-toast-error" role="alert">
+          Refund review failed: {refundError}
+          <button onClick={() => setRefundError("")} aria-label="Dismiss error">
+            <X size={15} />
+          </button>
+        </div>
+      )}
+      {confirmSettlementReconcile && (
+        <ConfirmActionModal
+          title="Create missing settlements?"
+          description="This creates pending settlement records for delivered, paid orders that do not have one yet. It uses each vendor’s current commission rate for those historical orders."
+          confirmLabel="Create settlements"
+          tone="primary"
+          busy={reconcileSettlements.isPending}
+          onCancel={() => setConfirmSettlementReconcile(false)}
+          onConfirm={() => reconcileSettlements.mutate()}
+        />
+      )}
+      {settlementAccountToConfirm && (
+        <ConfirmActionModal
+          title={`Settle ${settlementAccountToConfirm.vendor_name}’s account?`}
+          description={
+            settlementAccountToConfirm.owed_to_vendor_paise > 0
+              ? `This records a simulated payout of ${formatMoney(settlementAccountToConfirm.owed_to_vendor_paise)} and closes ${settlementAccountToConfirm.entries.filter((entry) => ["pending", "failed"].includes(entry.status) && entry.net_paise > 0).length} open order balance(s). No money will be transferred.`
+              : `This applies ${formatMoney(settlementAccountToConfirm.net_paise)} in open seller earnings against their outstanding balance. No money will be transferred.`
+          }
+          confirmLabel="Record account settlement"
+          tone="primary"
+          busy={releaseSettlement.isPending}
+          onCancel={() => setSettlementAccountToConfirm(null)}
+          onConfirm={() => releaseSettlement.mutate(settlementAccountToConfirm)}
+        />
+      )}
+    </main>
+  );
 }
 
-export function Component() { return <AdminDashboardPage /> }
+function OverviewSection({
+  data,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  data?: Overview;
+  isLoading: boolean;
+  error: Error | null;
+  onRetry: () => void;
+}) {
+  if (isLoading)
+    return (
+      <div className="admin-stat-grid">
+        {[0, 1, 2, 3].map((i) => (
+          <div className="admin-stat skeleton" key={i} />
+        ))}
+      </div>
+    );
+  if (error || !data)
+    return (
+      <div className="admin-panel admin-empty" role="alert">
+        <p>We couldn’t load the marketplace overview.</p>
+        <button className="button neutral" onClick={onRetry}>
+          <RefreshCw size={15} /> Try again
+        </button>
+      </div>
+    );
+  const stats = [
+    {
+      label: "Total orders",
+      value: data.orders.toLocaleString("en-IN"),
+      icon: ClipboardList,
+      note: "Across the marketplace",
+    },
+    {
+      label: "Active vendors",
+      value: data.vendors.toLocaleString("en-IN"),
+      icon: Store,
+      note: "Seller accounts",
+    },
+    {
+      label: "Products",
+      value: data.products.toLocaleString("en-IN"),
+      icon: Box,
+      note: "In the catalog",
+    },
+    {
+      label: "Paid revenue",
+      value: formatMoney(data.paid_revenue_paise),
+      icon: BadgeCheck,
+      note: `${data.users.toLocaleString("en-IN")} registered accounts`,
+    },
+  ];
+  return (
+    <>
+      <div className="admin-stat-grid">
+        {stats.map((item) => (
+          <article className="admin-stat" key={item.label}>
+            <span className="admin-stat-icon">
+              <item.icon size={18} />
+            </span>
+            <small>{item.label}</small>
+            <strong>{item.value}</strong>
+            <span>{item.note}</span>
+          </article>
+        ))}
+      </div>
+      <section className="admin-panel admin-shortcuts">
+        <div className="admin-panel-heading">
+          <div>
+            <h2>Quick access</h2>
+            <p>Jump into the parts of your marketplace that need attention.</p>
+          </div>
+        </div>
+        <div className="admin-shortcut-grid">
+          <Link to="/admin/orders">
+            <ClipboardList />
+            <span>
+              <strong>Review orders</strong>
+              <small>Check payment and fulfillment status</small>
+            </span>
+            <ChevronRight />
+          </Link>
+          <Link to="/admin/products">
+            <Box />
+            <span>
+              <strong>Browse products</strong>
+              <small>Review catalog health and stock</small>
+            </span>
+            <ChevronRight />
+          </Link>
+          <Link to="/admin/vendors">
+            <Store />
+            <span>
+              <strong>Verify sellers</strong>
+              <small>Review pending KYC applications</small>
+            </span>
+            <ChevronRight />
+          </Link>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function OrdersSection({
+  data,
+  loading,
+  error,
+  page,
+  setPage,
+}: {
+  data: PageResponse<Order> | undefined;
+  loading: boolean;
+  error: Error | null;
+  page: number;
+  setPage: (page: number) => void;
+}) {
+  return (
+    <DataPanel
+      title="Recent orders"
+      description="Order totals and payment state. Status changes remain available through the secured admin API."
+      loading={loading}
+      error={error}
+      empty={!data?.orders.length}
+      pagination={data?.pagination}
+      page={page}
+      setPage={setPage}
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer ID</th>
+            <th>Date</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data?.orders?.map((order) => (
+            <tr key={order.id}>
+              <td className="admin-mono">
+                #{order.id.slice(-8).toUpperCase()}
+              </td>
+              <td className="admin-mono">{order.user_id.slice(-8)}</td>
+              <td>{date(order.created_at)}</td>
+              <td>
+                <Status value={order.payment_status} />
+              </td>
+              <td>
+                <Status value={order.status} />
+              </td>
+              <td>{formatMoney(order.total_paise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataPanel>
+  );
+}
+function ProductsSection({
+  data,
+  loading,
+  error,
+  page,
+  setPage,
+}: {
+  data: PageResponse<Product> | undefined;
+  loading: boolean;
+  error: Error | null;
+  page: number;
+  setPage: (page: number) => void;
+}) {
+  return (
+    <DataPanel
+      title="Marketplace catalog"
+      description="Products from all sellers, including stock and publication state."
+      loading={loading}
+      error={error}
+      empty={!data?.products.length}
+      pagination={data?.pagination}
+      page={page}
+      setPage={setPage}
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>SKU</th>
+            <th>Seller ID</th>
+            <th>Price</th>
+            <th>Stock</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data?.products?.map((product) => (
+            <tr key={product.id}>
+              <td>
+                <strong>{product.name}</strong>
+                <small className="admin-subline">
+                  Added {date(product.created_at)}
+                </small>
+              </td>
+              <td className="admin-mono">{product.sku}</td>
+              <td className="admin-mono">{product.vendor_id.slice(-8)}</td>
+              <td>{formatMoney(product.price)}</td>
+              <td>{product.stock}</td>
+              <td>
+                <Status value={product.status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataPanel>
+  );
+}
+function VendorsSection({
+  data,
+  loading,
+  error,
+  page,
+  setPage,
+  onReview,
+  onCommission,
+  savingCommission,
+  onBankAccount,
+  savingBankAccount,
+}: {
+  data: PageResponse<Vendor> | undefined;
+  loading: boolean;
+  error: Error | null;
+  page: number;
+  setPage: (page: number) => void;
+  onReview: (id: string) => void;
+  onCommission: (vendorId: string, ratePercent: number) => void;
+  savingCommission: boolean;
+  onBankAccount: (vendorId: string, details: BankAccountDetails) => void;
+  savingBankAccount: boolean;
+}) {
+  return (
+    <DataPanel
+      title="Seller applications"
+      description="Review seller verification, commission rates, and masked bank payout details."
+      loading={loading}
+      error={error}
+      empty={!data?.vendors.length}
+      pagination={data?.pagination}
+      page={page}
+      setPage={setPage}
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Seller</th>
+            <th>Account ID</th>
+            <th>Submitted</th>
+            <th>Verification</th>
+            <th>Commission rate</th>
+            <th>Bank payout details</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data?.vendors?.map((vendor) => (
+            <tr key={vendor.id}>
+              <td>
+                <strong>{vendor.display_name || vendor.name}</strong>
+                <small className="admin-subline">{vendor.name}</small>
+              </td>
+              <td className="admin-mono">{vendor.id.slice(-8)}</td>
+              <td>{date(vendor.created_at)}</td>
+              <td>
+                <Status value={vendor.kyc_status} />
+              </td>
+              <td>
+                <form
+                  className="admin-commission-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const value = Number(
+                      new FormData(event.currentTarget).get("rate"),
+                    );
+                    if (Number.isFinite(value) && value >= 0 && value <= 100)
+                      onCommission(vendor.id, value);
+                  }}
+                >
+                  <input
+                    name="rate"
+                    aria-label={`Commission rate for ${vendor.display_name}`}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    defaultValue={(vendor.commission_rate_bps / 100).toFixed(2)}
+                  />
+                  <span>%</span>
+                  <button
+                    className="admin-row-action"
+                    disabled={savingCommission}
+                  >
+                    Save
+                  </button>
+                </form>
+              </td>
+              <td>
+                <strong>{vendor.bank_account_holder ?? "Not set"}</strong>
+                <small className="admin-subline">
+                  {vendor.bank_name ?? ""} · ****
+                  {vendor.bank_account_last4 ?? "----"}
+                </small>
+                <form
+                  className="admin-commission-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const form = new FormData(event.currentTarget);
+                    onBankAccount(vendor.id, {
+                      bank_account_holder: String(form.get("holder")).trim(),
+                      bank_account_number: String(form.get("account")).trim(),
+                      bank_ifsc: String(form.get("ifsc")).trim().toUpperCase(),
+                      bank_name: String(form.get("bank")).trim(),
+                      bank_account_type: String(
+                        form.get("type"),
+                      ) as BankAccountDetails["bank_account_type"],
+                    });
+                  }}
+                >
+                  <input
+                    name="holder"
+                    aria-label={`Bank account holder for ${vendor.display_name}`}
+                    placeholder="Account holder"
+                    defaultValue={vendor.bank_account_holder ?? ""}
+                    required
+                  />
+                  <input
+                    name="account"
+                    aria-label={`New bank account number for ${vendor.display_name}`}
+                    placeholder="Account number"
+                    inputMode="numeric"
+                    pattern="[0-9]{8,18}"
+                    required
+                  />
+                  <input
+                    name="ifsc"
+                    aria-label={`Bank IFSC for ${vendor.display_name}`}
+                    placeholder="IFSC"
+                    defaultValue={vendor.bank_ifsc ?? ""}
+                    pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}"
+                    required
+                  />
+                  <input
+                    name="bank"
+                    aria-label={`Bank name for ${vendor.display_name}`}
+                    placeholder="Bank name"
+                    defaultValue={vendor.bank_name ?? ""}
+                    required
+                  />
+                  <select
+                    name="type"
+                    aria-label={`Bank account type for ${vendor.display_name}`}
+                    defaultValue={vendor.bank_account_type ?? "savings"}
+                  >
+                    <option value="savings">Savings</option>
+                    <option value="current">Current</option>
+                  </select>
+                  <button
+                    className="admin-row-action"
+                    disabled={savingBankAccount}
+                  >
+                    Save bank details
+                  </button>
+                </form>
+              </td>
+              <td>
+                {vendor.kyc_status === "pending" ? (
+                  <button
+                    className="admin-row-action"
+                    onClick={() => onReview(vendor.id)}
+                  >
+                    Review KYC <ChevronRight size={14} />
+                  </button>
+                ) : (
+                  <span className="admin-muted">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataPanel>
+  );
+}
+function RefundsSection({
+  requests,
+  loading,
+  error,
+  onReview,
+}: {
+  requests: RefundRequest[];
+  loading: boolean;
+  error: Error | null;
+  onReview: (action: {
+    id: string;
+    decision: "approve" | "reject";
+    amount_paise: number;
+  }) => void;
+}) {
+  return (
+    <DataPanel
+      title="Customer refund requests"
+      description="Approval refunds the full customer payment. Seller net is deducted, Marketly commission is reversed, and any amount already paid becomes a future seller payout offset."
+      loading={loading}
+      error={error}
+      empty={!requests.length}
+    >
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer ID</th>
+            <th>Reason</th>
+            <th>Amount</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((request) => (
+            <tr key={request.id}>
+              <td className="admin-mono">
+                #{request.order_id.slice(-8).toUpperCase()}
+              </td>
+              <td className="admin-mono">{request.user_id.slice(-8)}</td>
+              <td>
+                <strong>{request.reason}</strong>
+              </td>
+              <td>{formatMoney(request.amount_paise)}</td>
+              <td>{date(request.created_at)}</td>
+              <td>
+                <Status value={request.status} />
+              </td>
+              <td>
+                {request.status === "requested" ? (
+                  <div className="admin-refund-actions">
+                    <button
+                      className="admin-row-action"
+                      onClick={() =>
+                        onReview({
+                          id: request.id,
+                          decision: "approve",
+                          amount_paise: request.amount_paise,
+                        })
+                      }
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="admin-row-action danger"
+                      onClick={() =>
+                        onReview({
+                          id: request.id,
+                          decision: "reject",
+                          amount_paise: request.amount_paise,
+                        })
+                      }
+                    >
+                      Reject
+                    </button>
+                  </div>
+                ) : (
+                  <span className="admin-muted">Reviewed</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </DataPanel>
+  );
+}
+type SettlementFilter = "all" | "payout" | "debt" | "settled";
+
+function hasOpenEarnings(account: Settlement) {
+  return getOpenEntries(account).length > 0;
+}
+
+function getOpenEntries(account: Settlement) {
+  return account.entries.filter(
+    (entry) =>
+      (entry.status === "pending" || entry.status === "failed") &&
+      entry.net_paise > 0,
+  );
+}
+
+function matchesSettlementFilter(
+  account: Settlement,
+  filter: SettlementFilter,
+) {
+  switch (filter) {
+    case "payout":
+      return account.owed_to_vendor_paise > 0;
+    case "debt":
+      return account.owed_to_marketly_paise > 0;
+    case "settled":
+      return (
+        account.owed_to_vendor_paise === 0 &&
+        account.owed_to_marketly_paise === 0
+      );
+    default:
+      return true;
+  }
+}
+
+function getAccountBalance(account: Settlement) {
+  return account.owed_to_vendor_paise - account.owed_to_marketly_paise;
+}
+
+function canRecordSettlement(account: Settlement, openEntryCount: number) {
+  const hasBankDetails = account.bank_account_last4 && account.bank_ifsc;
+  const payoutIsDue = account.owed_to_vendor_paise > 0;
+  return openEntryCount > 0 && (!payoutIsDue || Boolean(hasBankDetails));
+}
+
+function SettlementsSection({
+  data,
+  loading,
+  error,
+  page,
+  setPage,
+  onReconcile,
+  reconciling,
+  reconcileError,
+  onRelease,
+  releasing,
+}: {
+  data?: SettlementResponse;
+  loading: boolean;
+  error: Error | null;
+  page: number;
+  setPage: (page: number) => void;
+  onReconcile: () => void;
+  reconciling: boolean;
+  reconcileError: string;
+  onRelease: (settlement: Settlement) => void;
+  releasing: boolean;
+}) {
+  const [filter, setFilter] = useState<SettlementFilter>("all");
+  const accounts = data?.settlements ?? [];
+  const filtered = accounts.filter((account) =>
+    matchesSettlementFilter(account, filter),
+  );
+  const payoutTotal =
+    data?.summary?.owed_to_vendor_paise ??
+    accounts.reduce((sum, account) => sum + account.owed_to_vendor_paise, 0);
+  const debtTotal =
+    data?.summary?.owed_to_marketly_paise ??
+    accounts.reduce((sum, account) => sum + account.owed_to_marketly_paise, 0);
+  const openCount =
+    data?.summary?.open_account_count ??
+    accounts.filter(hasOpenEarnings).length;
+  return (
+    <>
+      <div className="admin-ledger-summary">
+        <article>
+          <span>Marketly owes sellers</span>
+          <strong>{formatMoney(payoutTotal)}</strong>
+          <small>Total positive balance across seller accounts</small>
+        </article>
+        <article>
+          <span>Sellers owe Marketly</span>
+          <strong>{formatMoney(debtTotal)}</strong>
+          <small>Carried forward from refunds</small>
+        </article>
+        <article>
+          <span>Accounts with open orders</span>
+          <strong>{openCount}</strong>
+          <small>Delivered earnings awaiting settlement</small>
+        </article>
+      </div>
+      <div className="admin-ledger-toolbar">
+        <div>
+          <h2>Seller accounts</h2>
+          <p>
+            Each account combines unpaid order earnings and any balance carried
+            forward.
+          </p>
+        </div>
+        <button
+          className="button neutral"
+          onClick={onReconcile}
+          disabled={reconciling}
+        >
+          {reconciling ? "Checking…" : "Find missing deliveries"}
+        </button>
+      </div>
+      {reconcileError && (
+        <p className="admin-error" role="alert">
+          {reconcileError}
+        </p>
+      )}
+      <div
+        className="admin-ledger-filters"
+        role="group"
+        aria-label="Filter seller accounts"
+      >
+        {(
+          [
+            { id: "all", label: "All accounts" },
+            { id: "payout", label: "Marketly owes" },
+            { id: "debt", label: "Seller owes" },
+            { id: "settled", label: "Settled" },
+          ] as const
+        ).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className={filter === item.id ? "active" : ""}
+            aria-pressed={filter === item.id}
+            onClick={() => setFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <DataPanel
+        title="Account balances"
+        description="Positive balance means payable to the seller. Negative balance means the seller owes Marketly."
+        loading={loading}
+        error={error}
+        empty={!filtered.length}
+        pagination={data?.pagination}
+        page={page}
+        setPage={setPage}
+      >
+        <div className="admin-ledger-list">
+          {filtered.map((account) => {
+            const openEntries = getOpenEntries(account);
+            const canSettle = canRecordSettlement(account, openEntries.length);
+            const label =
+              account.owed_to_vendor_paise > 0
+                ? "Payable to seller"
+                : account.owed_to_marketly_paise > 0
+                  ? "Seller owes Marketly"
+                  : "Account settled";
+            const balance = getAccountBalance(account);
+            return (
+              <details className="admin-ledger-account" key={account.id}>
+                <summary>
+                  <div className="admin-ledger-seller">
+                    <strong>{account.vendor_name}</strong>
+                    <small>
+                      {account.entries.length} order entries ·{" "}
+                      {account.bank_name ?? "Bank details not set"}{" "}
+                      {account.bank_account_last4
+                        ? `· •••• ${account.bank_account_last4}`
+                        : ""}
+                    </small>
+                  </div>
+                  <div
+                    className={`admin-ledger-balance ${balance < 0 ? "debit" : balance > 0 ? "credit" : ""}`}
+                  >
+                    <small>{label}</small>
+                    <strong>{formatMoney(Math.abs(balance))}</strong>
+                  </div>
+                  <span className="admin-ledger-toggle">
+                    View account <ChevronDown size={16} aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="admin-ledger-detail">
+                  <div className="admin-ledger-breakdown">
+                    <span>
+                      Unpaid order earnings{" "}
+                      <strong>{formatMoney(account.net_paise)}</strong>
+                    </span>
+                    <span>
+                      Carried balance{" "}
+                      <strong>
+                        {formatMoney(account.vendor_payout_balance_paise)}
+                      </strong>
+                    </span>
+                    <span>
+                      Gross sales{" "}
+                      <strong>{formatMoney(account.gross_paise)}</strong>
+                    </span>
+                    <span>
+                      Commission retained{" "}
+                      <strong>
+                        {formatMoney(
+                          account.commission_paise -
+                            account.commission_reversed_paise,
+                        )}
+                      </strong>
+                    </span>
+                    <span>
+                      Seller refunds{" "}
+                      <strong>{formatMoney(account.refund_paise)}</strong>
+                    </span>
+                  </div>
+                  {openEntries.length > 0 && (
+                    <div className="admin-ledger-action">
+                      <div>
+                        <strong>
+                          {formatMoney(account.owed_to_vendor_paise)} payable
+                          now
+                        </strong>
+                        <small>
+                          {openEntries.length} open delivered order(s).{" "}
+                          {account.owed_to_marketly_paise > 0
+                            ? `The seller balance offsets ${formatMoney(account.owed_to_marketly_paise)}.`
+                            : "Ready for admin settlement."}
+                        </small>
+                      </div>
+                      <button
+                        className="button primary"
+                        type="button"
+                        disabled={releasing || !canSettle}
+                        title={
+                          !canSettle
+                            ? "Add bank details in the seller profile before recording a payout."
+                            : undefined
+                        }
+                        onClick={() => onRelease(account)}
+                      >
+                        {releasing
+                          ? "Recording…"
+                          : account.owed_to_vendor_paise > 0
+                            ? "Review payout"
+                            : "Apply seller balance"}
+                      </button>
+                    </div>
+                  )}
+                  {!openEntries.length && (
+                    <p className="admin-ledger-closed">
+                      No order earnings are waiting to be settled.
+                    </p>
+                  )}
+                  <div className="admin-ledger-history">
+                    <h3>Account activity</h3>
+                    <div className="admin-table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Order</th>
+                            <th>Added</th>
+                            <th>Gross</th>
+                            <th>Commission</th>
+                            <th>Seller net</th>
+                            <th>Entry status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {account.entries.map((entry) => (
+                            <tr key={entry.id}>
+                              <td className="admin-mono">
+                                #{entry.order_id.slice(-8).toUpperCase()}
+                              </td>
+                              <td>{date(entry.created_at)}</td>
+                              <td>{formatMoney(entry.gross_paise)}</td>
+                              <td>{formatMoney(entry.commission_paise)}</td>
+                              <td>{formatMoney(entry.net_paise)}</td>
+                              <td>
+                                <Status
+                                  value={
+                                    entry.simulated_payout
+                                      ? "recorded_simulated"
+                                      : entry.status
+                                  }
+                                />
+                                {entry.provider_transfer_id && (
+                                  <small className="admin-subline admin-mono">
+                                    {entry.provider_transfer_id}
+                                  </small>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </DataPanel>
+    </>
+  );
+}
+function CouponsSection({
+  coupons,
+  redemptions,
+  loading,
+  error,
+  onCreate,
+  creating,
+  createError,
+}: {
+  coupons: Coupon[];
+  redemptions: Redemption[];
+  loading: boolean;
+  error: Error | null;
+  onCreate: (body: Record<string, unknown>) => Promise<unknown>;
+  creating: boolean;
+  createError: string;
+}) {
+  const [activeTab, setActiveTab] = useState<"coupons" | "usage">("coupons");
+  const [showCreate, setShowCreate] = useState(false);
+  return (
+    <>
+      <div className="admin-coupon-toolbar">
+        <div
+          className="admin-coupon-tabs"
+          role="tablist"
+          aria-label="Coupon administration"
+        >
+          <button
+            role="tab"
+            aria-selected={activeTab === "coupons"}
+            className={activeTab === "coupons" ? "active" : ""}
+            onClick={() => setActiveTab("coupons")}
+          >
+            <TicketPercent size={15} /> Coupons
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === "usage"}
+            className={activeTab === "usage" ? "active" : ""}
+            onClick={() => setActiveTab("usage")}
+          >
+            <ClipboardList size={15} /> Usage
+          </button>
+        </div>
+        {activeTab === "coupons" && (
+          <button
+            className="button primary"
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus size={15} /> Create coupon
+          </button>
+        )}
+      </div>
+      {activeTab === "coupons" ? (
+        <DataPanel
+          title="Coupons"
+          description="Usage counts reflect recorded redemptions. Coupons at their limit cannot be applied again."
+          loading={loading}
+          error={error}
+          empty={!coupons.length}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Discount</th>
+                <th>Usage</th>
+                <th>Validity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coupons.map((coupon) => {
+                const exhausted =
+                  coupon.usage_limit !== undefined &&
+                  coupon.usage_count >= coupon.usage_limit;
+                const status = exhausted
+                  ? "limit reached"
+                  : !coupon.is_active
+                    ? "inactive"
+                    : new Date(coupon.expires_at).getTime() <= Date.now()
+                      ? "expired"
+                      : new Date(coupon.starts_at).getTime() > Date.now()
+                        ? "scheduled"
+                        : "active";
+                return (
+                  <tr key={coupon.id}>
+                    <td>
+                      <strong>{coupon.code}</strong>
+                    </td>
+                    <td>
+                      {coupon.discount_type === "percentage"
+                        ? `${coupon.discount_value}%`
+                        : formatMoney(coupon.discount_value)}
+                    </td>
+                    <td>
+                      {coupon.usage_count}
+                      {coupon.usage_limit !== undefined
+                        ? ` / ${coupon.usage_limit}`
+                        : " / ∞"}
+                    </td>
+                    <td>
+                      {date(coupon.starts_at)} – {date(coupon.expires_at)}
+                    </td>
+                    <td>
+                      <Status value={status} />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </DataPanel>
+      ) : (
+        <DataPanel
+          title="Coupon usage"
+          description="Recent coupon redemptions with linked order and customer IDs."
+          loading={loading}
+          error={error}
+          empty={!redemptions.length}
+        >
+          <table>
+            <thead>
+              <tr>
+                <th>Coupon</th>
+                <th>Order</th>
+                <th>Customer ID</th>
+                <th>Discount</th>
+                <th>Redeemed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {redemptions.map((entry) => (
+                <tr key={entry.id}>
+                  <td>
+                    <strong>{entry.code ?? "Coupon removed"}</strong>
+                  </td>
+                  <td className="admin-mono">
+                    #{entry.order_id.slice(-8).toUpperCase()}
+                  </td>
+                  <td className="admin-mono">{entry.user_id.slice(-8)}</td>
+                  <td>{formatMoney(entry.discount_paise)}</td>
+                  <td>{date(entry.redeemed_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </DataPanel>
+      )}
+      {showCreate && (
+        <div
+          className="admin-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !creating)
+              setShowCreate(false);
+          }}
+        >
+          <section
+            className="admin-modal admin-coupon-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-coupon-title"
+          >
+            <header>
+              <div>
+                <span className="vendor-eyebrow">COUPON MANAGEMENT</span>
+                <h2 id="create-coupon-title">Create a coupon</h2>
+              </div>
+              <button
+                aria-label="Close dialog"
+                disabled={creating}
+                onClick={() => setShowCreate(false)}
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <p className="admin-modal-intro">
+              Publish a marketplace coupon with an optional total usage limit.
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = new FormData(event.currentTarget);
+                const type = String(
+                  form.get("discount_type"),
+                ) as Coupon["discount_type"];
+                const rawValue = Number(form.get("discount_value"));
+                const body = {
+                  code: String(form.get("code")).trim(),
+                  discount_type: type,
+                  discount_value:
+                    type === "fixed" ? Math.round(rawValue * 100) : rawValue,
+                  starts_at: new Date(
+                    String(form.get("starts_at")),
+                  ).toISOString(),
+                  expires_at: new Date(
+                    String(form.get("expires_at")),
+                  ).toISOString(),
+                  ...(String(form.get("usage_limit"))
+                    ? { usage_limit: Number(form.get("usage_limit")) }
+                    : {}),
+                };
+                void onCreate(body)
+                  .then(() => setShowCreate(false))
+                  .catch(() => {});
+              }}
+            >
+              <label className="admin-field">
+                Coupon code
+                <input
+                  name="code"
+                  required
+                  maxLength={100}
+                  pattern="[A-Za-z0-9_-]+"
+                  placeholder="WELCOME10"
+                />
+              </label>
+              <label className="admin-field">
+                Discount type
+                <select name="discount_type">
+                  <option value="percentage">Percentage</option>
+                  <option value="fixed">Fixed amount (₹)</option>
+                </select>
+              </label>
+              <label className="admin-field">
+                Discount value
+                <input
+                  name="discount_value"
+                  type="number"
+                  required
+                  min="0.01"
+                  step="0.01"
+                />
+              </label>
+              <label className="admin-field">
+                Total usage limit
+                <input
+                  name="usage_limit"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Unlimited"
+                />
+              </label>
+              <label className="admin-field">
+                Starts at
+                <input name="starts_at" type="datetime-local" required />
+              </label>
+              <label className="admin-field">
+                Expires at
+                <input name="expires_at" type="datetime-local" required />
+              </label>
+              {createError && (
+                <p className="admin-error" role="alert">
+                  {createError}
+                </p>
+              )}
+              <div className="admin-modal-actions">
+                <button
+                  type="button"
+                  className="button neutral"
+                  disabled={creating}
+                  onClick={() => setShowCreate(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button primary"
+                  type="submit"
+                  disabled={creating}
+                >
+                  {creating ? (
+                    "Creating…"
+                  ) : (
+                    <>
+                      <Plus size={15} /> Create coupon
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+    </>
+  );
+}
+function AdminsSection({
+  data,
+  loading,
+  onCreate,
+  submitting,
+  error,
+}: {
+  data: PageResponse<AuthUser> | undefined;
+  loading: boolean;
+  onCreate: (data: { name: string; email: string; password: string }) => void;
+  submitting: boolean;
+  error: string;
+}) {
+  const [pendingAdmin, setPendingAdmin] = useState<{
+    name: string;
+    email: string;
+    password: string;
+  } | null>(null);
+  return (
+    <>
+      <DataPanel
+        title="Administrator access"
+        description="Only active administrators can enter this workspace or provision new admin accounts."
+        loading={loading}
+        error={null}
+        empty={!data?.users.length}
+      >
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Account state</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.users?.map((admin) => (
+              <tr key={admin.id}>
+                <td>
+                  <strong>{admin.name}</strong>
+                </td>
+                <td>{admin.email}</td>
+                <td>
+                  <Status value="admin" />
+                </td>
+                <td>
+                  <Status value={admin.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </DataPanel>
+      <section id="add-admin" className="admin-panel admin-create-panel">
+        <div className="admin-panel-heading">
+          <div>
+            <h2>Add an administrator</h2>
+            <p>Create a separate account with full marketplace access.</p>
+          </div>
+          <span className="admin-create-icon">
+            <ShieldCheck size={18} />
+          </span>
+        </div>
+        <form
+          id="add-admin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            setPendingAdmin({
+              name: String(form.get("name")).trim(),
+              email: String(form.get("email")).trim(),
+              password: String(form.get("password")),
+            });
+          }}
+        >
+          <label className="admin-field">
+            Full name
+            <input
+              name="name"
+              minLength={2}
+              maxLength={100}
+              autoComplete="name"
+              required
+            />
+          </label>
+          <label className="admin-field">
+            Email
+            <input
+              name="email"
+              type="email"
+              maxLength={254}
+              autoComplete="email"
+              required
+            />
+          </label>
+          <label className="admin-field">
+            Password
+            <input
+              name="password"
+              type="password"
+              minLength={12}
+              maxLength={128}
+              autoComplete="new-password"
+              required
+            />
+            <small>
+              Use at least 12 characters and share it through a secure channel.
+            </small>
+          </label>
+          {error && (
+            <p className="admin-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            className="button primary"
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting ? (
+              "Creating account…"
+            ) : (
+              <>
+                <Plus size={15} /> Create administrator
+              </>
+            )}
+          </button>
+        </form>
+      </section>
+      {pendingAdmin && (
+        <ConfirmActionModal
+          title="Create this administrator account?"
+          description="This grants full marketplace access to the account. Make sure the name and email are correct before continuing."
+          confirmLabel="Create administrator"
+          tone="primary"
+          busy={submitting}
+          onCancel={() => setPendingAdmin(null)}
+          onConfirm={() => {
+            const account = pendingAdmin;
+            setPendingAdmin(null);
+            onCreate(account);
+            document.getElementById("add-admin-form")?.closest("form")?.reset();
+          }}
+        />
+      )}
+    </>
+  );
+}
+function DataPanel({
+  title,
+  description,
+  loading,
+  error,
+  empty,
+  pagination,
+  page,
+  setPage,
+  children,
+}: {
+  title: string;
+  description: string;
+  loading: boolean;
+  error: Error | null;
+  empty: boolean;
+  pagination?: Pagination;
+  page?: number;
+  setPage?: (page: number) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-heading">
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        {pagination && (
+          <span className="admin-total">
+            {pagination.total.toLocaleString("en-IN")} records
+          </span>
+        )}
+      </div>
+      {loading ? (
+        <div className="admin-table-loading skeleton" />
+      ) : error ? (
+        <div className="admin-empty" role="alert">
+          <p>We couldn’t load this list.</p>
+          <span>{errorMessage(error)}</span>
+        </div>
+      ) : empty ? (
+        <div className="admin-empty">
+          <Store size={24} />
+          <strong>Nothing here yet</strong>
+          <span>There are no records to show.</span>
+        </div>
+      ) : (
+        <>
+          <div className="admin-table-wrap">{children}</div>
+          {pagination && page && setPage && pagination.total_pages > 1 && (
+            <div className="admin-pagination">
+              <span>
+                Page {page} of {pagination.total_pages}
+              </span>
+              <div>
+                <button
+                  aria-label="Previous page"
+                  disabled={page <= 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  aria-label="Next page"
+                  disabled={page >= pagination.total_pages}
+                  onClick={() => setPage(page + 1)}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+function Status({ value }: { value: string }) {
+  return (
+    <span
+      className={`admin-status ${value.toLowerCase().replaceAll("_", "-")}`}
+    >
+      {value.replaceAll("_", " ")}
+    </span>
+  );
+}
+function Document({
+  label,
+  objectKey,
+  vendorId,
+  document,
+}: {
+  label: string;
+  objectKey: string;
+  vendorId: string;
+  document: "address" | "identity";
+}) {
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  async function openDocument() {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await client.get<{ url: string }>(
+        `/admin/vendors/${vendorId}/kyc/documents/${document}/access`,
+      );
+      setUrl(data.url);
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setLoading(false);
+    }
+  }
+  return (
+    <div className="admin-document">
+      <span>
+        <BadgeCheck size={17} />
+      </span>
+      <div>
+        <strong>{label}</strong>
+        <small>{objectKey.split("/").pop()}</small>
+        {url ? (
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            Open document
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void openDocument()}
+            disabled={loading}
+          >
+            {loading ? "Preparing…" : "Get secure preview"}
+          </button>
+        )}
+        {error && <small className="admin-error">{error}</small>}
+      </div>
+    </div>
+  );
+}
+
+export function Component() {
+  return <AdminDashboardPage />;
+}

@@ -5,7 +5,10 @@ type ElasticsearchResponse = {
   acknowledged?: boolean;
   error?: { type?: string; reason?: string };
   result?: string;
-  hits?: { total?: number | { value?: number }; hits?: Array<{ _source?: Record<string, unknown>; _id?: string }> };
+  hits?: {
+    total?: number | { value?: number };
+    hits?: Array<{ _source?: Record<string, unknown>; _id?: string }>;
+  };
   [key: string]: unknown;
 };
 
@@ -43,45 +46,65 @@ export function elasticsearchRequest(
 ): Promise<ElasticsearchResponse> {
   const base = process.env.ELASTICSEARCH_URL || "http://localhost:9200";
   const url = new URL(`${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Unsupported Elasticsearch URL protocol");
+  if (url.protocol !== "http:" && url.protocol !== "https:")
+    throw new Error("Unsupported Elasticsearch URL protocol");
   const username = process.env.ELASTICSEARCH_USERNAME;
   const password = process.env.ELASTICSEARCH_PASSWORD;
-  const auth = username ? `Basic ${Buffer.from(`${username}:${password || ""}`).toString("base64")}` : undefined;
+  const auth = username
+    ? `Basic ${Buffer.from(`${username}:${password || ""}`).toString("base64")}`
+    : undefined;
   const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
 
   return new Promise((resolve, reject) => {
-    const request = transport(url, {
-      method,
-      headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) },
-      timeout: 5000,
-    }, (response) => {
-      let data = "";
-      response.setEncoding("utf8");
-      response.on("data", (chunk: string) => { data += chunk; });
-      response.on("end", () => {
-        const statusCode = response.statusCode || 500;
-        let parsed: ElasticsearchResponse = {};
-        if (data) {
-          try { parsed = JSON.parse(data) as ElasticsearchResponse; }
-          catch {
-            reject(new Error("Elasticsearch returned invalid JSON"));
+    const request = transport(
+      url,
+      {
+        method,
+        headers: {
+          "content-type": "application/json",
+          ...(auth ? { authorization: auth } : {}),
+        },
+        timeout: 5000,
+      },
+      (response) => {
+        let data = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk: string) => {
+          data += chunk;
+        });
+        response.on("end", () => {
+          const statusCode = response.statusCode || 500;
+          let parsed: ElasticsearchResponse = {};
+          if (data) {
+            try {
+              parsed = JSON.parse(data) as ElasticsearchResponse;
+            } catch {
+              reject(new Error("Elasticsearch returned invalid JSON"));
+              return;
+            }
+          }
+          if (
+            (statusCode < 200 || statusCode >= 300) &&
+            !acceptedStatuses.includes(statusCode)
+          ) {
+            const error = new Error(
+              `Elasticsearch returned ${statusCode}: ${parsed.error?.reason || "request failed"}`,
+            ) as Error & {
+              statusCode: number;
+              errorType?: string;
+            };
+            error.statusCode = statusCode;
+            error.errorType = parsed.error?.type;
+            reject(error);
             return;
           }
-        }
-        if ((statusCode < 200 || statusCode >= 300) && !acceptedStatuses.includes(statusCode)) {
-          const error = new Error(`Elasticsearch returned ${statusCode}: ${parsed.error?.reason || "request failed"}`) as Error & {
-            statusCode: number;
-            errorType?: string;
-          };
-          error.statusCode = statusCode;
-          error.errorType = parsed.error?.type;
-          reject(error);
-          return;
-        }
-        resolve(parsed);
-      });
-    });
-    request.on("timeout", () => request.destroy(new Error("Elasticsearch request timed out")));
+          resolve(parsed);
+        });
+      },
+    );
+    request.on("timeout", () =>
+      request.destroy(new Error("Elasticsearch request timed out")),
+    );
     request.on("error", reject);
     request.end(body === undefined ? undefined : JSON.stringify(body));
   });
@@ -90,27 +113,31 @@ export function elasticsearchRequest(
 async function ensureProductsIndex(): Promise<void> {
   if (!productsIndexReady) {
     productsIndexReady = elasticsearchRequest("PUT", "products", {
-      mappings: { properties: {
-        id: { type: "keyword" },
-        vendor_id: { type: "keyword" },
-        category_id: { type: "keyword" },
-        name: { type: "text", fields: { keyword: { type: "keyword" } } },
-        description: { type: "text" },
-        sku: { type: "text", fields: { keyword: { type: "keyword" } } },
-        price: { type: "double" },
-        stock: { type: "integer" },
-        average_rating: { type: "float" },
-        review_count: { type: "integer" },
-        status: { type: "keyword" },
-        created_at: { type: "date" },
-        updated_at: { type: "date" },
-      } },
-    }).then(() => undefined).catch((error: Error & { errorType?: string }) => {
-      // Elasticsearch returns 400 with this type if another process created the index first.
-      if (error.errorType === "resource_already_exists_exception") return;
-      productsIndexReady = undefined;
-      throw error;
-    });
+      mappings: {
+        properties: {
+          id: { type: "keyword" },
+          vendor_id: { type: "keyword" },
+          category_id: { type: "keyword" },
+          name: { type: "text", fields: { keyword: { type: "keyword" } } },
+          description: { type: "text" },
+          sku: { type: "text", fields: { keyword: { type: "keyword" } } },
+          price: { type: "double" },
+          stock: { type: "integer" },
+          average_rating: { type: "float" },
+          review_count: { type: "integer" },
+          status: { type: "keyword" },
+          created_at: { type: "date" },
+          updated_at: { type: "date" },
+        },
+      },
+    })
+      .then(() => undefined)
+      .catch((error: Error & { errorType?: string }) => {
+        // Elasticsearch returns 400 with this type if another process created the index first.
+        if (error.errorType === "resource_already_exists_exception") return;
+        productsIndexReady = undefined;
+        throw error;
+      });
   }
   await productsIndexReady;
 }
@@ -144,11 +171,21 @@ export async function indexProduct(product: SearchableProduct): Promise<void> {
     created_at: product.created_at,
     updated_at: product.updated_at,
   };
-  await elasticsearchRequest("PUT", `products/_doc/${encodeURIComponent(product.id)}`, document, [200, 201]);
+  await elasticsearchRequest(
+    "PUT",
+    `products/_doc/${encodeURIComponent(product.id)}`,
+    document,
+    [200, 201],
+  );
 }
 
 export async function removeProductFromIndex(productId: string): Promise<void> {
-  await elasticsearchRequest("DELETE", `products/_doc/${encodeURIComponent(productId)}`, undefined, [404]);
+  await elasticsearchRequest(
+    "DELETE",
+    `products/_doc/${encodeURIComponent(productId)}`,
+    undefined,
+    [404],
+  );
 }
 
 function queueIndexOperation(operation: PendingIndexOperation): void {
@@ -159,11 +196,12 @@ function queueIndexOperation(operation: PendingIndexOperation): void {
 }
 
 function scheduleIndexRetry(operation: PendingIndexOperation): void {
-  const delay = Math.min(1000 * (2 ** Math.min(operation.attempts, 6)), 60_000);
+  const delay = Math.min(1000 * 2 ** Math.min(operation.attempts, 6), 60_000);
   operation.timer = setTimeout(async () => {
     if (pendingIndexOperations.get(operation.productId) !== operation) return;
     try {
-      if (operation.kind === "delete") await removeProductFromIndex(operation.productId);
+      if (operation.kind === "delete")
+        await removeProductFromIndex(operation.productId);
       else if (operation.product) await indexProduct(operation.product);
       pendingIndexOperations.delete(operation.productId);
     } catch (error) {
@@ -175,7 +213,9 @@ function scheduleIndexRetry(operation: PendingIndexOperation): void {
   operation.timer.unref();
 }
 
-export async function syncProductIndex(product: SearchableProduct): Promise<void> {
+export async function syncProductIndex(
+  product: SearchableProduct,
+): Promise<void> {
   if (product.status !== "active") {
     await syncProductDeletion(product.id);
     return;
@@ -188,7 +228,12 @@ export async function syncProductIndex(product: SearchableProduct): Promise<void
     pendingIndexOperations.delete(product.id);
   } catch (error) {
     console.error("Product search index sync failed; queued for retry:", error);
-    queueIndexOperation({ kind: "index", productId: product.id, product, attempts: 0 });
+    queueIndexOperation({
+      kind: "index",
+      productId: product.id,
+      product,
+      attempts: 0,
+    });
   }
 }
 
@@ -199,7 +244,10 @@ export async function syncProductDeletion(productId: string): Promise<void> {
     if (pending?.timer) clearTimeout(pending.timer);
     pendingIndexOperations.delete(productId);
   } catch (error) {
-    console.error("Product search index delete failed; queued for retry:", error);
+    console.error(
+      "Product search index delete failed; queued for retry:",
+      error,
+    );
     queueIndexOperation({ kind: "delete", productId, attempts: 0 });
   }
 }

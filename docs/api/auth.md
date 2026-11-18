@@ -46,4 +46,3 @@ No body or authentication is read. **Response:** `200` `{message:"Logged out suc
 ## Authentication
 
 The middleware requires a case-sensitive `Bearer ` prefix. JWT payload requires `id`, `email`, and role (`customer`, `vendor`, or `admin`). Admin routes add `requireAdmin`; vendor management adds `requireVendor`; product writes add `requireVerifiedVendor`.
-

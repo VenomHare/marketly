@@ -17,7 +17,10 @@ const OrderStatusHistorySchema = new Schema<IOrderStatusHistory>(
     changed_by_user_id: { type: String, required: true },
     created_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at" } }
+  { timestamps: { createdAt: "created_at" } },
 );
 
-export default mongoose.model<IOrderStatusHistory>("OrderStatusHistory", OrderStatusHistorySchema);
+export default mongoose.model<IOrderStatusHistory>(
+  "OrderStatusHistory",
+  OrderStatusHistorySchema,
+);

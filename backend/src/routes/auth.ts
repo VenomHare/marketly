@@ -21,7 +21,7 @@ authRouter.post("/auth/register", async (req, res) => {
     const validation = registerSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({
-        message: "Invalid parameters"
+        message: "Invalid parameters",
       });
     }
     const { name, email, password } = validation.data;
@@ -45,13 +45,13 @@ authRouter.post("/auth/register", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     const refreshToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
     );
 
     res.status(201).json({
@@ -99,13 +99,13 @@ authRouter.post("/auth/login", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     const refreshToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
     );
 
     res.json({
@@ -119,7 +119,7 @@ authRouter.post("/auth/login", async (req, res) => {
       token,
       refreshToken,
     });
-  } catch (error) { 
+  } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Login failed" });
   }
@@ -144,19 +144,21 @@ authRouter.post("/auth/refresh", async (req, res) => {
     const user = await User.findById(decoded.id);
     console.log(user);
     if (!user || user.status === "suspended") {
-      return res.status(401).json({ message: "Invalid or expired refresh token" });
+      return res
+        .status(401)
+        .json({ message: "Invalid or expired refresh token" });
     }
 
     const newToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     const newRefreshToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       JWT_SECRET,
-      { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+      { expiresIn: REFRESH_TOKEN_EXPIRES_IN },
     );
 
     res.json({
@@ -216,7 +218,12 @@ authRouter.get("/me", authenticate, async (req: AuthRequest, res) => {
       return res.json({
         ...baseResponse,
         admin: {
-          permissions: ["manage_users", "manage_vendors", "manage_products", "view_analytics"],
+          permissions: [
+            "manage_users",
+            "manage_vendors",
+            "manage_products",
+            "view_analytics",
+          ],
         },
       });
     }
@@ -234,7 +241,7 @@ authRouter.patch("/users/me", authenticate, async (req: AuthRequest, res) => {
     const validation = updateUserSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json({
-        message: "Invalid parameters"
+        message: "Invalid parameters",
       });
     }
     const { name } = validation.data;
@@ -242,7 +249,7 @@ authRouter.patch("/users/me", authenticate, async (req: AuthRequest, res) => {
     const user = await User.findByIdAndUpdate(
       req.user?.id,
       { name, updated_at: new Date() },
-      { new: true }
+      { new: true },
     );
 
     if (!user) {
@@ -263,42 +270,55 @@ authRouter.patch("/users/me", authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-authRouter.patch("/users/me/password", authenticate, async (req: AuthRequest, res) => {
-  try {
-    const validation = updatePasswordSchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({
-        message: "Invalid parameters"
+authRouter.patch(
+  "/users/me/password",
+  authenticate,
+  async (req: AuthRequest, res) => {
+    try {
+      const validation = updatePasswordSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          message: "Invalid parameters",
+        });
+      }
+      const { currentPassword, newPassword } = validation.data;
+
+      const user = await User.findById(req.user?.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const isValidPassword = await bcrypt.compare(
+        currentPassword,
+        user.password_hash,
+      );
+      if (!isValidPassword) {
+        return res
+          .status(401)
+          .json({ message: "Current password is incorrect" });
+      }
+
+      const password_hash = await bcrypt.hash(newPassword, 10);
+
+      await User.findByIdAndUpdate(req.user?.id, {
+        password_hash,
+        updated_at: new Date(),
       });
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password update error:", error);
+      res.status(500).json({ message: "Failed to update password" });
     }
-    const { currentPassword, newPassword } = validation.data;
+  },
+);
 
-    const user = await User.findById(req.user?.id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isValidPassword) {
-      return res.status(401).json({ message: "Current password is incorrect" });
-    }
-
-    const password_hash = await bcrypt.hash(newPassword, 10);
-
-    await User.findByIdAndUpdate(req.user?.id, {
-      password_hash,
-      updated_at: new Date(),
-    });
-
-    res.json({ message: "Password updated successfully" });
-  } catch (error) {
-    console.error("Password update error:", error);
-    res.status(500).json({ message: "Failed to update password" });
-  }
-});
-
-authRouter.get("/users/me/orders", authenticate, async (req: AuthRequest, res) => {
-  res.json({ message: "Route not implemented yet" });
-});
+authRouter.get(
+  "/users/me/orders",
+  authenticate,
+  async (req: AuthRequest, res) => {
+    res.json({ message: "Route not implemented yet" });
+  },
+);
 
 export default authRouter;

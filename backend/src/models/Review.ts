@@ -21,7 +21,7 @@ const ReviewSchema = new Schema<IReview>(
     comment: { type: String, required: true },
     created_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at" } }
+  { timestamps: { createdAt: "created_at" } },
 );
 
 ReviewSchema.index({ order_item_id: 1 }, { unique: true });

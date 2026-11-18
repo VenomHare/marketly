@@ -47,10 +47,10 @@ Success returns `201` with `order` (`id`, `status`, `subtotal_paise`, `discount_
 
 Requires a customer bearer token. Returns only the authenticated customer's order summaries, newest first. Each order includes `id`, `status`, `payment_status`, `subtotal_paise`, `discount_paise`, `shipping_paise`, `total_paise`, `created_at`, and `updated_at`. Address snapshots and customer IDs are not included in the list response.
 
-| Query | Type | Default | Constraints |
-| --- | --- | --- | --- |
-| `page` | integer | `1` | At least `1`; page offset must be a safe integer |
-| `limit` | integer | `20` | `1` through `100` |
+| Query   | Type    | Default | Constraints                                      |
+| ------- | ------- | ------- | ------------------------------------------------ |
+| `page`  | integer | `1`     | At least `1`; page offset must be a safe integer |
+| `limit` | integer | `20`    | `1` through `100`                                |
 
 Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response contains `orders` and `pagination` (`page`, `limit`, `total`, `total_pages`); each order includes `fulfillment_status`, derived from vendor fulfillment when it has advanced beyond the parent order state. An empty history has `total_pages: 0`. Other roles receive `403 {"message":"Customer access required"}`.
 
@@ -87,4 +87,4 @@ The response contains `order_id`, `order_status`, and `vendor_orders`. Each vend
 The following handlers remain placeholders and return `500 {"message":"Route not implemented"}`. Their success contracts and inputs are not defined in the current implementation.
 
 | Method and path | Inputs |
-| --- | --- |
+| --------------- | ------ |

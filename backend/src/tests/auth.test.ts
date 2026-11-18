@@ -22,11 +22,22 @@ describe("Auth Routes", () => {
 
   beforeAll(async () => {
     // Connect to database
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/marketly");
+    await mongoose.connect(
+      process.env.MONGODB_URI || "mongodb://localhost:27017/marketly",
+    );
 
     // Clean up test data
-    const testEmails = ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"];
-    const previousUsers = await User.find({ email: { $in: testEmails } }).select("_id");
+    const testEmails = [
+      "customer@test.com",
+      "vendor@test.com",
+      "admin@test.com",
+      "suspended@test.com",
+      "newuser@test.com",
+      "vendorwithoutprofile@test.com",
+    ];
+    const previousUsers = await User.find({
+      email: { $in: testEmails },
+    }).select("_id");
     const previousUserIds = previousUsers.map((user) => user.id);
     await Vendor.deleteMany({ user_id: { $in: previousUserIds } });
     await User.deleteMany({ email: { $in: testEmails } });
@@ -81,26 +92,35 @@ describe("Auth Routes", () => {
     authToken = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     adminToken = jwt.sign(
       { id: adminUser.id, email: adminUser.email, role: "admin" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     vendorToken = jwt.sign(
       { id: vendorUser.id, email: vendorUser.email, role: "vendor" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
   });
 
   afterAll(async () => {
     // Clean up test data
-    const testEmails = ["customer@test.com", "vendor@test.com", "admin@test.com", "suspended@test.com", "newuser@test.com", "vendorwithoutprofile@test.com"];
-    const testUsers = await User.find({ email: { $in: testEmails } }).select("_id");
+    const testEmails = [
+      "customer@test.com",
+      "vendor@test.com",
+      "admin@test.com",
+      "suspended@test.com",
+      "newuser@test.com",
+      "vendorwithoutprofile@test.com",
+    ];
+    const testUsers = await User.find({ email: { $in: testEmails } }).select(
+      "_id",
+    );
     const testUserIds = testUsers.map((user) => user.id);
     await Vendor.deleteMany({ user_id: { $in: testUserIds } });
     await User.deleteMany({ email: { $in: testEmails } });
@@ -111,7 +131,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -133,7 +153,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: vendorUser.id, email: vendorUser.email, role: "vendor" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -157,7 +177,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: adminUser.id, email: adminUser.email, role: "admin" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -199,7 +219,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       "wrong-secret-key",
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -217,7 +237,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "-1h" }
+      { expiresIn: "-1h" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -259,7 +279,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -277,7 +297,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -292,11 +312,9 @@ describe("Auth Routes", () => {
   });
 
   it("should return 401 with token missing required fields", async () => {
-    const token = jwt.sign(
-      { id: customerUser.id },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = jwt.sign({ id: customerUser.id }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
     const response = await fetch(`${BASE_URL}/me`, {
       headers: {
@@ -325,7 +343,7 @@ describe("Auth Routes", () => {
     const token = jwt.sign(
       { id: customerUser.id, email: customerUser.email, role: "customer" },
       JWT_SECRET,
-      { expiresIn: "7d", algorithm: "none" }
+      { expiresIn: "7d", algorithm: "none" },
     );
 
     const response = await fetch(`${BASE_URL}/me`, {
@@ -561,7 +579,7 @@ describe("Auth Routes", () => {
       const refreshToken = jwt.sign(
         { id: customerUser.id, email: customerUser.email, role: "customer" },
         JWT_SECRET,
-        { expiresIn: "30d" }
+        { expiresIn: "30d" },
       );
 
       const response = await fetch(`${BASE_URL}/auth/refresh`, {
@@ -601,14 +619,17 @@ describe("Auth Routes", () => {
 
       expect(response.status).toBe(401);
       const body: any = await response.json();
-      expect(body).toHaveProperty("message", "Invalid or expired refresh token");
+      expect(body).toHaveProperty(
+        "message",
+        "Invalid or expired refresh token",
+      );
     });
 
     it("should reject refresh with expired refresh token", async () => {
       const refreshToken = jwt.sign(
         { id: customerUser.id, email: customerUser.email, role: "customer" },
         JWT_SECRET,
-        { expiresIn: "-1h" }
+        { expiresIn: "-1h" },
       );
 
       const response = await fetch(`${BASE_URL}/auth/refresh`, {
@@ -619,14 +640,17 @@ describe("Auth Routes", () => {
 
       expect(response.status).toBe(401);
       const body: any = await response.json();
-      expect(body).toHaveProperty("message", "Invalid or expired refresh token");
+      expect(body).toHaveProperty(
+        "message",
+        "Invalid or expired refresh token",
+      );
     });
 
     it("should reject refresh for suspended user", async () => {
       const refreshToken = jwt.sign(
         { id: suspendedUser.id, email: suspendedUser.email, role: "customer" },
         JWT_SECRET,
-        { expiresIn: "30d" }
+        { expiresIn: "30d" },
       );
 
       const response = await fetch(`${BASE_URL}/auth/refresh`, {
@@ -637,7 +661,10 @@ describe("Auth Routes", () => {
 
       expect(response.status).toBe(401);
       const body: any = await response.json();
-      expect(body).toHaveProperty("message", "Invalid or expired refresh token");
+      expect(body).toHaveProperty(
+        "message",
+        "Invalid or expired refresh token",
+      );
     });
   });
 
@@ -719,7 +746,9 @@ describe("Auth Routes", () => {
 
       // Revert password for other tests
       const newPasswordHash = await bcrypt.hash("password123", 10);
-      await User.findByIdAndUpdate(customerUser.id, { password_hash: newPasswordHash });
+      await User.findByIdAndUpdate(customerUser.id, {
+        password_hash: newPasswordHash,
+      });
     });
 
     it("should reject password update without authentication", async () => {
@@ -851,11 +880,14 @@ describe("Auth Routes", () => {
 
   describe("GET /admin/users/:uuid", () => {
     it("should return specific user for admin", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}`, {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+          },
         },
-      });
+      );
 
       expect(response.status).toBe(200);
       const body: any = await response.json();
@@ -880,11 +912,14 @@ describe("Auth Routes", () => {
     });
 
     it("should reject for non-admin user", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
         },
-      });
+      );
 
       expect(response.status).toBe(403);
       const body: any = await response.json();
@@ -892,7 +927,9 @@ describe("Auth Routes", () => {
     });
 
     it("should reject without authentication", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}`);
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}`,
+      );
 
       expect(response.status).toBe(401);
     });
@@ -900,14 +937,17 @@ describe("Auth Routes", () => {
 
   describe("PATCH /admin/users/:uuid/status", () => {
     it("should update user status for admin", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: "suspended" }),
         },
-        body: JSON.stringify({ status: "suspended" }),
-      });
+      );
 
       expect(response.status).toBe(200);
       const body: any = await response.json();
@@ -919,14 +959,17 @@ describe("Auth Routes", () => {
     });
 
     it("should reject with invalid status", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: "invalid" }),
         },
-        body: JSON.stringify({ status: "invalid" }),
-      });
+      );
 
       expect(response.status).toBe(400);
       const body: any = await response.json();
@@ -935,14 +978,17 @@ describe("Auth Routes", () => {
     });
 
     it("should reject with missing status", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({}),
         },
-        body: JSON.stringify({}),
-      });
+      );
 
       expect(response.status).toBe(400);
       const body: any = await response.json();
@@ -967,14 +1013,17 @@ describe("Auth Routes", () => {
     });
 
     it("should reject for non-admin user", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ status: "suspended" }),
         },
-        body: JSON.stringify({ status: "suspended" }),
-      });
+      );
 
       expect(response.status).toBe(403);
       const body: any = await response.json();
@@ -982,11 +1031,14 @@ describe("Auth Routes", () => {
     });
 
     it("should reject without authentication", async () => {
-      const response = await fetch(`${BASE_URL}/admin/users/${customerUser.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "suspended" }),
-      });
+      const response = await fetch(
+        `${BASE_URL}/admin/users/${customerUser.id}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "suspended" }),
+        },
+      );
 
       expect(response.status).toBe(401);
     });

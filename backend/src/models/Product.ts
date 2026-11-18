@@ -27,11 +27,15 @@ const ProductSchema = new Schema<IProduct>(
     stock: { type: Number, required: true },
     average_rating: { type: Number, default: 0 },
     review_count: { type: Number, default: 0 },
-    status: { type: String, enum: ["draft", "active", "archived"], default: "draft" },
+    status: {
+      type: String,
+      enum: ["draft", "active", "archived"],
+      default: "draft",
+    },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
 export default mongoose.model<IProduct>("Product", ProductSchema);

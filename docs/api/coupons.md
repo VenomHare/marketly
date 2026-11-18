@@ -13,10 +13,10 @@ Base prefix: `/api/v1`.
 
 Public. Lists coupons where `is_active` is true, `starts_at` is at or before the current time, and `expires_at` is in the future. Results sort by earliest expiry, then ID.
 
-| Query | Type | Default | Constraints |
-| --- | --- | --- | --- |
-| `page` | integer | `1` | At least `1` |
-| `limit` | integer | `20` | `1` through `100` |
+| Query   | Type    | Default | Constraints       |
+| ------- | ------- | ------- | ----------------- |
+| `page`  | integer | `1`     | At least `1`      |
+| `limit` | integer | `20`    | `1` through `100` |
 
 Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response includes a `coupons` array and `pagination` (`page`, `limit`, `total`, `total_pages`). Coupon objects expose `id`, `code`, `discount_type`, `discount_value`, optional `product_ids`, `max_discount_paise`, `min_order_paise`, and `usage_limit`, plus `starts_at`, `expires_at`, and `is_active`. When `product_ids` is absent, the coupon applies to the full order subtotal; otherwise it applies only to the listed products.
 
@@ -57,10 +57,10 @@ Requires a customer bearer token. Other roles receive `403 {"message":"Customer 
 
 Returns the authenticated customer's coupon redemption history, newest first. Each `coupons` entry contains the redemption `id`, `coupon_id`, `code`, `order_id`, `discount_paise`, and `redeemed_at`. If a coupon record has since been removed, `code` is `null` while the redemption remains in history.
 
-| Query | Type | Default | Constraints |
-| --- | --- | --- | --- |
-| `page` | integer | `1` | `1` through `Number.MAX_SAFE_INTEGER` |
-| `limit` | integer | `20` | `1` through `100` |
+| Query   | Type    | Default | Constraints                           |
+| ------- | ------- | ------- | ------------------------------------- |
+| `page`  | integer | `1`     | `1` through `Number.MAX_SAFE_INTEGER` |
+| `limit` | integer | `20`    | `1` through `100`                     |
 
 Unknown query parameters and invalid values return `400 {"message":"Invalid parameters"}`. The response includes `pagination` (`page`, `limit`, `total`, `total_pages`); an empty history has `total_pages: 0`.
 

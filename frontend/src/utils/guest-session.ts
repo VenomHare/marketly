@@ -1,10 +1,10 @@
-const sessionStorageKey = 'bz_session_id'
+const sessionStorageKey = "bz_session_id";
 
 export function getGuestSessionId(): string {
-  let sessionId = localStorage.getItem(sessionStorageKey)
+  let sessionId = localStorage.getItem(sessionStorageKey);
   if (!sessionId) {
-    sessionId = crypto.randomUUID()
-    localStorage.setItem(sessionStorageKey, sessionId)
+    sessionId = crypto.randomUUID();
+    localStorage.setItem(sessionStorageKey, sessionId);
   }
-  return sessionId
+  return sessionId;
 }

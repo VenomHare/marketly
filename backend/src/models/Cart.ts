@@ -15,7 +15,7 @@ const CartSchema = new Schema<ICart>(
     updated_at: { type: Date, default: Date.now },
     expires_at: { type: Date },
   },
-  { timestamps: { updatedAt: "updated_at" } }
+  { timestamps: { updatedAt: "updated_at" } },
 );
 
 export default mongoose.model<ICart>("Cart", CartSchema);

@@ -1,43 +1,48 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 @theme {
-  --color-nav-900: #0B1220;
-  --color-nav-800: #14213D;
-  --color-nav-700: #22365A;
-  --color-page: #F3F6FB;
-  --color-surface: #FFFFFF;
-  --color-surface-muted: #F5F8FE;
-  --color-border: #DCE4F1;
-  --color-border-strong: #A8B6CC;
+  --color-nav-900: #0b1220;
+  --color-nav-800: #14213d;
+  --color-nav-700: #22365a;
+  --color-page: #f3f6fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f8fe;
+  --color-border: #dce4f1;
+  --color-border-strong: #a8b6cc;
   --color-text: #111827;
-  --color-text-muted: #56657A;
-  --color-text-on-dark: #FFFFFF;
-  --color-text-on-dark-muted: #DDDDDD;
-  --color-link: #245AE8;
-  --color-link-hover: #173FAE;
-  --color-accent: #4F83FF;
-  --color-cta-yellow: #2563EB;
-  --color-cta-yellow-border: #2563EB;
-  --color-cta-yellow-hover: #1D4ED8;
-  --color-cta-orange: #0865CF;
-  --color-cta-orange-border: #0865CF;
-  --color-cta-orange-hover: #0A4EBB;
-  --color-btn-neutral: #FFFFFF;
-  --color-price: #B12704;
-  --color-deal: #CC0C39;
-  --color-star: #FFA41C;
+  --color-text-muted: #56657a;
+  --color-text-on-dark: #ffffff;
+  --color-text-on-dark-muted: #dddddd;
+  --color-link: #245ae8;
+  --color-link-hover: #173fae;
+  --color-accent: #4f83ff;
+  --color-cta-yellow: #2563eb;
+  --color-cta-yellow-border: #2563eb;
+  --color-cta-yellow-hover: #1d4ed8;
+  --color-cta-orange: #0865cf;
+  --color-cta-orange-border: #0865cf;
+  --color-cta-orange-hover: #0a4ebb;
+  --color-btn-neutral: #ffffff;
+  --color-price: #b12704;
+  --color-deal: #cc0c39;
+  --color-star: #ffa41c;
   --color-success: #007600;
-  --color-success-bg: #EAF6EA;
-  --color-warning: #B26A00;
-  --color-warning-bg: #FFF4E0;
-  --color-danger: #C40000;
-  --color-danger-bg: #FDECEC;
-  --color-info: #0066C0;
-  --color-info-bg: #E8F3FC;
-  --color-focus: #2563EB;
-  --color-overlay: rgba(15,17,17,0.5);
-  --font-sans: 'Inter Variable', Arial, Helvetica, sans-serif;
+  --color-success-bg: #eaf6ea;
+  --color-warning: #b26a00;
+  --color-warning-bg: #fff4e0;
+  --color-danger: #c40000;
+  --color-danger-bg: #fdecec;
+  --color-info: #0066c0;
+  --color-info-bg: #e8f3fc;
+  --color-focus: #2563eb;
+  --color-overlay: rgba(15, 17, 17, 0.5);
+  --font-sans: "Inter Variable", Arial, Helvetica, sans-serif;
 }
 
-:root { color-scheme: light; }
-html { min-width: 320px; scroll-behavior: smooth; }
+:root {
+  color-scheme: light;
+}
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}

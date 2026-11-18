@@ -1,11 +1,12 @@
 import puppeteer from "puppeteer";
 
-const escapeHtml = (value: unknown) => String(value ?? "")
-  .replace(/&/g, "&amp;")
-  .replace(/</g, "&lt;")
-  .replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;")
-  .replace(/'/g, "&#39;");
+const escapeHtml = (value: unknown) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 type InvoiceItem = {
   product_name: string;
@@ -29,25 +30,39 @@ type CustomerInvoice = {
   totalPaise: number;
 };
 
-const invoiceMoney = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const invoiceDate = (date: Date) => new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+const invoiceMoney = (paise: number) =>
+  `₹${(paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const invoiceDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 
 /** Render an invoice as a styled HTML document, then print it to PDF with Chromium. */
 export async function createInvoicePdf(invoice: CustomerInvoice) {
   const addressLines = [
     invoice.address.first_line,
     invoice.address.second_line,
-    [invoice.address.city, invoice.address.state, invoice.address.postal_code].filter(Boolean).join(", "),
+    [invoice.address.city, invoice.address.state, invoice.address.postal_code]
+      .filter(Boolean)
+      .join(", "),
     invoice.address.country,
-    invoice.address.contact_number ? `Phone: ${invoice.address.contact_number}` : undefined,
+    invoice.address.contact_number
+      ? `Phone: ${invoice.address.contact_number}`
+      : undefined,
   ].filter(Boolean);
-  const rows = invoice.items.map((item) => `<tr>
+  const rows = invoice.items
+    .map(
+      (item) => `<tr>
     <td><strong>${escapeHtml(item.product_name)}</strong><small>SKU ${escapeHtml(item.sku)}</small></td>
     <td class="number">${item.quantity}</td>
     <td class="number">${invoiceMoney(item.unit_price_paise)}</td>
     <td class="number">${invoiceMoney(item.discount_paise)}</td>
     <td class="number total">${invoiceMoney(item.line_total_paise)}</td>
-  </tr>`).join("");
+  </tr>`,
+    )
+    .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Marketly Invoice</title><style>
     @page { size: A4; margin: 18mm 16mm 20mm; }
     * { box-sizing: border-box; }
@@ -98,7 +113,11 @@ export async function createInvoicePdf(invoice: CustomerInvoice) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
-    return await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
   } finally {
     await browser.close();
   }
@@ -128,19 +147,28 @@ type SettlementInvoice = {
 
 /** Render a seller settlement statement in the same Marketly HTML invoice design. */
 export async function createSettlementInvoicePdf(invoice: SettlementInvoice) {
-  const rows = invoice.items.map((item) => `<tr>
+  const rows = invoice.items
+    .map(
+      (item) => `<tr>
     <td><strong>${escapeHtml(item.product_name)}</strong><small>SKU ${escapeHtml(item.sku)}</small></td>
     <td class="number">${item.quantity}</td>
     <td class="number">${invoiceMoney(item.unit_price_paise)}</td>
     <td class="number">${invoiceMoney(item.discount_paise)}</td>
     <td class="number total">${invoiceMoney(item.line_total_paise)}</td>
-  </tr>`).join("");
+  </tr>`,
+    )
+    .join("");
   const summaryRows = [
     ["Gross sales", invoice.grossPaise],
     ["Marketly commission", -invoice.commissionPaise],
     ["Commission reversed", invoice.commissionReversedPaise],
     ["Seller refund adjustment", -invoice.refundPaise],
-  ].map(([label, amount]) => `<div class="summary-row"><span>${label}</span><span>${invoiceMoney(Number(amount))}</span></div>`).join("");
+  ]
+    .map(
+      ([label, amount]) =>
+        `<div class="summary-row"><span>${label}</span><span>${invoiceMoney(Number(amount))}</span></div>`,
+    )
+    .join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Marketly Settlement Invoice</title><style>
     @page { size: A4; margin: 18mm 16mm 20mm; }
     * { box-sizing: border-box; }
@@ -192,7 +220,11 @@ export async function createSettlementInvoicePdf(invoice: SettlementInvoice) {
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
-    return await page.pdf({ format: "A4", printBackground: true, preferCSSPageSize: true });
+    return await page.pdf({
+      format: "A4",
+      printBackground: true,
+      preferCSSPageSize: true,
+    });
   } finally {
     await browser.close();
   }

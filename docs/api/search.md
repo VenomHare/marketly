@@ -13,16 +13,16 @@ Base prefix: `/api/v1`. All routes are public and query Elasticsearch's `product
 
 Search active products. With no `q`, the route browses active products and applies any filters.
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `q` | — | Optional trimmed text, 1–200 characters; searches name, description, and SKU, with name weighted higher |
-| `category` | — | Optional exact `category_id` value, up to 100 characters |
-| `minPrice` | — | Optional finite number, at least 0 |
-| `maxPrice` | — | Optional finite number, at least 0; must be greater than or equal to `minPrice` |
-| `sortBy` | `relevance` | `relevance`, `price`, or `created_at` |
-| `order` | `asc` | `asc` or `desc`; relevance is always sorted by descending relevance score |
-| `page` | `1` | Integer from 1 to 100,000 |
-| `limit` | `20` | Integer from 1 to 100 |
+| Query      | Default     | Rules                                                                                                   |
+| ---------- | ----------- | ------------------------------------------------------------------------------------------------------- |
+| `q`        | —           | Optional trimmed text, 1–200 characters; searches name, description, and SKU, with name weighted higher |
+| `category` | —           | Optional exact `category_id` value, up to 100 characters                                                |
+| `minPrice` | —           | Optional finite number, at least 0                                                                      |
+| `maxPrice` | —           | Optional finite number, at least 0; must be greater than or equal to `minPrice`                         |
+| `sortBy`   | `relevance` | `relevance`, `price`, or `created_at`                                                                   |
+| `order`    | `asc`       | `asc` or `desc`; relevance is always sorted by descending relevance score                               |
+| `page`     | `1`         | Integer from 1 to 100,000                                                                               |
+| `limit`    | `20`        | Integer from 1 to 100                                                                                   |
 
 Example:
 
@@ -34,18 +34,18 @@ Success returns `{ "products": [...], "total": 42, "page": 1, "limit": 20, "tota
 
 ## `GET /search/suggestions`
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `q` | Required | Trimmed prefix, 1–100 characters |
-| `limit` | `10` | Integer from 1 to 20 |
+| Query   | Default  | Rules                            |
+| ------- | -------- | -------------------------------- |
+| `q`     | Required | Trimmed prefix, 1–100 characters |
+| `limit` | `10`     | Integer from 1 to 20             |
 
 Uses name prefix matching on active products and returns distinct nonblank names as `{ "suggestions": ["Mechanical Keyboard", "Mechanical Keyboard Case"] }`. Invalid or unsupported parameters return `400`; Elasticsearch errors return `502 { "message": "Search suggestions are temporarily unavailable" }`.
 
 ## `GET /search/trending`
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `limit` | `10` | Integer from 1 to 50 |
+| Query   | Default | Rules                |
+| ------- | ------- | -------------------- |
+| `limit` | `10`    | Integer from 1 to 50 |
 
 Returns `{ "products": [...] }` for active products, ranked by review count, average rating, then creation date, all descending. This is the current popularity proxy; it does not use recent sales or search activity. Invalid or unsupported parameters return `400`; Elasticsearch errors return `502 { "message": "Trending products are temporarily unavailable" }`.
 

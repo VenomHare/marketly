@@ -37,13 +37,13 @@ Returns `201` with the product, including `id`, `vendor_id`, category and produc
 
 List active products. Draft and archived products are omitted.
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `page` | `1` | Positive integer |
-| `limit` | `20` | Integer from 1 to 100 |
-| `category_id` | — | Optional 24-character hex category ID |
-| `search` | — | Optional text, case-insensitive match against name and description |
-| `sort` | `newest` | `newest`, `price_asc`, or `price_desc` |
+| Query         | Default  | Rules                                                              |
+| ------------- | -------- | ------------------------------------------------------------------ |
+| `page`        | `1`      | Positive integer                                                   |
+| `limit`       | `20`     | Integer from 1 to 100                                              |
+| `category_id` | —        | Optional 24-character hex category ID                              |
+| `search`      | —        | Optional text, case-insensitive match against name and description |
+| `sort`        | `newest` | `newest`, `price_asc`, or `price_desc`                             |
 
 Returns `{ "products": [...], "pagination": { "page", "limit", "total", "total_pages" } }`. Invalid or unsupported query parameters return `400`.
 
@@ -120,10 +120,10 @@ Returns `{ "images": [...] }` in the new order, with positions reassigned from z
 
 List all products owned by the authenticated vendor, including draft, active, and archived products. A vendor profile and active user account are required; pending KYC is allowed.
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `page` | `1` | Positive integer |
-| `limit` | `20` | Integer from 1 to 100 |
+| Query   | Default | Rules                 |
+| ------- | ------- | --------------------- |
+| `page`  | `1`     | Positive integer      |
+| `limit` | `20`    | Integer from 1 to 100 |
 
 Returns `{ "products": [...], "pagination": { "page", "limit", "total", "pages" } }`. Invalid or unsupported query parameters return `400`; missing vendor profile returns `403`; inactive account returns `403`.
 
@@ -137,10 +137,10 @@ List active products for a verified vendor whose user account is active. Support
 
 List reviews for an active product, newest first. Reviewer and order IDs are not included.
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `page` | `1` | Positive integer |
-| `limit` | `20` | Integer from 1 to 100 |
+| Query   | Default | Rules                 |
+| ------- | ------- | --------------------- |
+| `page`  | `1`     | Positive integer      |
+| `limit` | `20`    | Integer from 1 to 100 |
 
 Returns `{ "reviews": [{ "id", "rating", "title", "comment", "created_at" }], "pagination": { "page", "limit", "total", "pages" } }`. Products with no reviews return an empty list and `pages: 0`. Invalid query parameters or IDs return `400`; missing, draft, and archived products return `404`.
 
@@ -170,9 +170,9 @@ List the authenticated customer's reviews, newest first, with `page` and `limit`
 
 List active products in the same category, excluding the requested product. Results are ordered by average rating, review count, and creation time, descending.
 
-| Query | Default | Rules |
-| --- | --- | --- |
-| `limit` | `10` | Integer from 1 to 50 |
+| Query   | Default | Rules                |
+| ------- | ------- | -------------------- |
+| `limit` | `10`    | Integer from 1 to 50 |
 
 Returns `{ "products": [...] }`. Invalid query parameters or IDs return `400`; missing, draft, and archived products return `404`. No matching products returns an empty list.
 

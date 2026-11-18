@@ -30,7 +30,12 @@ import {
   VendorOrder,
   VendorSettlement,
 } from "../backend/src/models";
-import { elasticsearchRequest, indexProduct, resetProductsIndex, type SearchableProduct } from "../backend/src/utils/elasticsearch";
+import {
+  elasticsearchRequest,
+  indexProduct,
+  resetProductsIndex,
+  type SearchableProduct,
+} from "../backend/src/utils/elasticsearch";
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const DEMO_PASSWORD = "MarketlyDemo!2026";
@@ -65,7 +70,11 @@ const catalog: Array<[string, string, number]> = [
   ["Glass Food Containers", "Four-piece airtight glass container set", 2499],
   ["Pour-over Kettle", "Gooseneck kettle for precise pour-over brewing", 3999],
   ["Storage Basket", "Handwoven basket for home organization", 1199],
-  ["Daily Moisturizer", "Lightweight fragrance-free daily face moisturizer", 899],
+  [
+    "Daily Moisturizer",
+    "Lightweight fragrance-free daily face moisturizer",
+    899,
+  ],
   ["Cleansing Balm", "Gentle plant-based makeup cleansing balm", 1099],
   ["Mineral Sunscreen", "Broad-spectrum mineral sunscreen SPF 50", 799],
   ["Hair Care Set", "Nourishing shampoo and conditioner duo", 1499],
@@ -107,37 +116,52 @@ async function idSet(model: any): Promise<Set<string>> {
   return new Set(ids.map((id: unknown) => String(id)));
 }
 
-function assertForeignKeys(label: string, values: Array<string | undefined>, validIds: Set<string>, allowMissing = false) {
+function assertForeignKeys(
+  label: string,
+  values: Array<string | undefined>,
+  validIds: Set<string>,
+  allowMissing = false,
+) {
   for (const value of values) {
     if (!value) {
       if (allowMissing) continue;
       throw new Error(`${label} is missing a required reference.`);
     }
-    if (!validIds.has(value)) throw new Error(`${label} points to a missing record: ${value}`);
+    if (!validIds.has(value))
+      throw new Error(`${label} points to a missing record: ${value}`);
   }
 }
 
 async function main() {
-  if (!MONGODB_URI) throw new Error("Set MONGODB_URI before running the seed script.");
+  if (!MONGODB_URI)
+    throw new Error("Set MONGODB_URI before running the seed script.");
   if (process.env.SEED_ALLOW_RESET !== "true") {
-    throw new Error("This script drops the connected database. Set SEED_ALLOW_RESET=true only when you intend to replace all its data.");
+    throw new Error(
+      "This script drops the connected database. Set SEED_ALLOW_RESET=true only when you intend to replace all its data.",
+    );
   }
   if (catalog.length !== categories.length * 5) {
-    throw new Error(`Seed catalog must contain exactly five products per category; found ${catalog.length} products for ${categories.length} categories.`);
+    throw new Error(
+      `Seed catalog must contain exactly five products per category; found ${catalog.length} products for ${categories.length} categories.`,
+    );
   }
   if (!(process.env.BANK_DETAILS_ENCRYPTION_KEY || process.env.JWT_SECRET)) {
-    throw new Error("Set BANK_DETAILS_ENCRYPTION_KEY or JWT_SECRET before seeding vendor bank details.");
+    throw new Error(
+      "Set BANK_DETAILS_ENCRYPTION_KEY or JWT_SECRET before seeding vendor bank details.",
+    );
   }
 
-  const placeholderKeys = await Promise.all(placeholderImageNames.map(async (fileName) => {
-    const key = `products/placeholder/${fileName}`;
-    await uploadObject({
-      key,
-      body: await readFile(resolve(placeholderDirectory, fileName)),
-      contentType: "image/webp",
-    });
-    return key;
-  }));
+  const placeholderKeys = await Promise.all(
+    placeholderImageNames.map(async (fileName) => {
+      const key = `products/placeholder/${fileName}`;
+      await uploadObject({
+        key,
+        body: await readFile(resolve(placeholderDirectory, fileName)),
+        contentType: "image/webp",
+      });
+      return key;
+    }),
+  );
 
   await User.db.openUri(MONGODB_URI);
   // Reset search before dropping MongoDB so an unavailable Elasticsearch service cannot leave it wiped.
@@ -147,78 +171,125 @@ async function main() {
   await User.db.dropDatabase();
 
   const password_hash = await bcrypt.hash(DEMO_PASSWORD, 10);
-  const admin = await User.create({ name: "Marketly Admin", email: "admin@marketly.demo", password_hash, role: "admin" });
-  const customers = await User.insertMany(Array.from({ length: 10 }, (_, i) => ({
-    name: `Demo Customer ${i + 1}`,
-    email: `customer${String(i + 1).padStart(2, "0")}@marketly.demo`,
+  const admin = await User.create({
+    name: "Marketly Admin",
+    email: "admin@marketly.demo",
     password_hash,
-    role: "customer" as const,
-  })));
-  const vendorUsers = await User.insertMany(Array.from({ length: 10 }, (_, i) => ({
-    name: `Demo Vendor ${i + 1}`,
-    email: `vendor${String(i + 1).padStart(2, "0")}@marketly.demo`,
-    password_hash,
-    role: "vendor" as const,
-  })));
+    role: "admin",
+  });
+  const customers = await User.insertMany(
+    Array.from({ length: 10 }, (_, i) => ({
+      name: `Demo Customer ${i + 1}`,
+      email: `customer${String(i + 1).padStart(2, "0")}@marketly.demo`,
+      password_hash,
+      role: "customer" as const,
+    })),
+  );
+  const vendorUsers = await User.insertMany(
+    Array.from({ length: 10 }, (_, i) => ({
+      name: `Demo Vendor ${i + 1}`,
+      email: `vendor${String(i + 1).padStart(2, "0")}@marketly.demo`,
+      password_hash,
+      role: "vendor" as const,
+    })),
+  );
 
-  const vendorDocs = await Vendor.insertMany(vendorUsers.map((user, i) => ({
-    user_id: user.id,
-    name: `Demo Vendor ${i + 1}`,
-    display_name: `Marketly Shop ${i + 1}`,
-    address: `${100 + i} Market Street, Sample City`,
-    postal_code: `5600${i}`,
-    kyc_status: "verified" as const,
-    commission_rate_bps: 1000,
-    bank_account_holder: user.name,
-    ...encryptBankAccount(`999990000${String(i).padStart(2, "0")}`),
-    bank_ifsc: "DEMO0000001",
-    bank_name: "Demo Bank",
-    bank_account_type: "current" as const,
-    payout_balance_paise: 0,
-  })));
+  const vendorDocs = await Vendor.insertMany(
+    vendorUsers.map((user, i) => ({
+      user_id: user.id,
+      name: `Demo Vendor ${i + 1}`,
+      display_name: `Marketly Shop ${i + 1}`,
+      address: `${100 + i} Market Street, Sample City`,
+      postal_code: `5600${i}`,
+      kyc_status: "verified" as const,
+      commission_rate_bps: 1000,
+      bank_account_holder: user.name,
+      ...encryptBankAccount(`999990000${String(i).padStart(2, "0")}`),
+      bank_ifsc: "DEMO0000001",
+      bank_name: "Demo Bank",
+      bank_account_type: "current" as const,
+      payout_balance_paise: 0,
+    })),
+  );
   const adminId = admin.id;
-  await VendorKyc.insertMany(vendorDocs.map((vendor) => ({
-    vendor_id: vendor.id,
-    address_proof_key: `kyc/${vendor.id}/demo-address-proof.pdf`,
-    identity_proof_key: `kyc/${vendor.id}/demo-identity-proof.pdf`,
-    status: "verified",
-    reviewed_by_user_id: adminId,
-    reviewed_at: new Date(),
-    submitted_at: new Date(),
-  })));
+  await VendorKyc.insertMany(
+    vendorDocs.map((vendor) => ({
+      vendor_id: vendor.id,
+      address_proof_key: `kyc/${vendor.id}/demo-address-proof.pdf`,
+      identity_proof_key: `kyc/${vendor.id}/demo-identity-proof.pdf`,
+      status: "verified",
+      reviewed_by_user_id: adminId,
+      reviewed_at: new Date(),
+      submitted_at: new Date(),
+    })),
+  );
 
-  const categoryDocs = await Category.insertMany(categories.map(([name, slug]) => ({ name, slug })));
-  const products = await Product.insertMany(catalog.map(([name, description, price], i) => ({
-    vendor_id: vendorDocs[i % vendorDocs.length]!.id,
-    category_id: categoryDocs[Math.floor(i / 5)]!.id,
-    name,
-    description,
-    sku: `MK-${String(i + 1).padStart(4, "0")}`,
-    price,
-    stock: 20 + (i % 30),
-    status: "active" as const,
-  })));
-  await ProductImage.insertMany(products.flatMap((product) => placeholderKeys.map((object_key, position) => ({
-    product_id: product.id,
-    object_key,
-    alt_text: `${product.name} placeholder image ${position + 1}`,
-    position,
-  }))));
+  const categoryDocs = await Category.insertMany(
+    categories.map(([name, slug]) => ({ name, slug })),
+  );
+  const products = await Product.insertMany(
+    catalog.map(([name, description, price], i) => ({
+      vendor_id: vendorDocs[i % vendorDocs.length]!.id,
+      category_id: categoryDocs[Math.floor(i / 5)]!.id,
+      name,
+      description,
+      sku: `MK-${String(i + 1).padStart(4, "0")}`,
+      price,
+      stock: 20 + (i % 30),
+      status: "active" as const,
+    })),
+  );
+  await ProductImage.insertMany(
+    products.flatMap((product) =>
+      placeholderKeys.map((object_key, position) => ({
+        product_id: product.id,
+        object_key,
+        alt_text: `${product.name} placeholder image ${position + 1}`,
+        position,
+      })),
+    ),
+  );
 
   const now = new Date();
   const coupon = await Coupon.create({
-    code: "WELCOME10", discount_type: "percentage", discount_value: 10,
-    max_discount_paise: 10000, min_order_paise: 1000, usage_limit: 100,
-    starts_at: new Date(now.getTime() - 86400000), expires_at: new Date(now.getTime() + 31536000000), is_active: true,
+    code: "WELCOME10",
+    discount_type: "percentage",
+    discount_value: 10,
+    max_discount_paise: 10000,
+    min_order_paise: 1000,
+    usage_limit: 100,
+    starts_at: new Date(now.getTime() - 86400000),
+    expires_at: new Date(now.getTime() + 31536000000),
+    is_active: true,
   });
 
-  const addresses = await Address.insertMany(customers.map((user, i) => ({
-    user_id: user.id, label: "Home", first_line: `${i + 1} Demo Residency`, second_line: "Sample Road",
-    postal_code: `5600${i}`, city: "Bengaluru", state: "Karnataka", country: "India",
-    addressee_name: user.name, contact_number: `90000000${String(i).padStart(2, "0")}`,
-  })));
-  const carts = await Cart.insertMany(customers.map((user, i) => ({ user_id: user.id, expires_at: new Date(now.getTime() + 86400000) })));
-  await CartItem.insertMany(carts.map((cart, i) => ({ cart_id: cart.id, product_id: products[i]!.id, quantity: 1 })));
+  const addresses = await Address.insertMany(
+    customers.map((user, i) => ({
+      user_id: user.id,
+      label: "Home",
+      first_line: `${i + 1} Demo Residency`,
+      second_line: "Sample Road",
+      postal_code: `5600${i}`,
+      city: "Bengaluru",
+      state: "Karnataka",
+      country: "India",
+      addressee_name: user.name,
+      contact_number: `90000000${String(i).padStart(2, "0")}`,
+    })),
+  );
+  const carts = await Cart.insertMany(
+    customers.map((user, i) => ({
+      user_id: user.id,
+      expires_at: new Date(now.getTime() + 86400000),
+    })),
+  );
+  await CartItem.insertMany(
+    carts.map((cart, i) => ({
+      cart_id: cart.id,
+      product_id: products[i]!.id,
+      quantity: 1,
+    })),
+  );
 
   for (let i = 0; i < customers.length; i++) {
     const user = customers[i]!;
@@ -229,160 +300,536 @@ async function main() {
     const price = product.price * 100;
     const discount = i === 1 ? Math.min(10000, Math.round(price * 0.1)) : 0;
     const total = price - discount;
-    const commission = Math.floor(total * vendor.commission_rate_bps / 10000);
+    const commission = Math.floor((total * vendor.commission_rate_bps) / 10000);
     const sellerNet = total - commission;
-    const settlementStatus = refunded ? "paid" : i === 2 ? "failed" : unsettled ? "pending" : "paid";
+    const settlementStatus = refunded
+      ? "paid"
+      : i === 2
+        ? "failed"
+        : unsettled
+          ? "pending"
+          : "paid";
     const order = await Order.create({
       user_id: user.id,
       cart_id: carts[i]!.id,
-      address_snapshot: { addressee_name: user.name, first_line: addresses[i]!.first_line, postal_code: addresses[i]!.postal_code, city: "Bengaluru", state: "Karnataka", country: "India", contact_number: addresses[i]!.contact_number },
-      subtotal_paise: price, discount_paise: discount, shipping_paise: 0, total_paise: total,
-      payment_status: refunded ? "refunded" : "paid", status: "completed",
+      address_snapshot: {
+        addressee_name: user.name,
+        first_line: addresses[i]!.first_line,
+        postal_code: addresses[i]!.postal_code,
+        city: "Bengaluru",
+        state: "Karnataka",
+        country: "India",
+        contact_number: addresses[i]!.contact_number,
+      },
+      subtotal_paise: price,
+      discount_paise: discount,
+      shipping_paise: 0,
+      total_paise: total,
+      payment_status: refunded ? "refunded" : "paid",
+      status: "completed",
     });
     const item = await OrderItem.create({
-      order_id: order.id, product_id: product.id, vendor_id: vendor.id, product_name: product.name,
-      sku: product.sku, unit_price_paise: price, quantity: 1, discount_paise: discount, line_total_paise: total,
+      order_id: order.id,
+      product_id: product.id,
+      vendor_id: vendor.id,
+      product_name: product.name,
+      sku: product.sku,
+      unit_price_paise: price,
+      quantity: 1,
+      discount_paise: discount,
+      line_total_paise: total,
     });
-    const vendorOrder = await VendorOrder.create({ order_id: order.id, vendor_id: vendor.id, status: "delivered" });
+    const vendorOrder = await VendorOrder.create({
+      order_id: order.id,
+      vendor_id: vendor.id,
+      status: "delivered",
+    });
     const payment = await Payment.create({
-      order_id: order.id, provider: "razorpay", provider_order_id: `demo_order_${i + 1}`,
-      provider_payment_id: `demo_payment_${i + 1}`, status: refunded ? "refunded" : "success",
-      amount_paise: total, currency: "INR", idempotency_key: `demo-idempotency-${i + 1}`,
+      order_id: order.id,
+      provider: "razorpay",
+      provider_order_id: `demo_order_${i + 1}`,
+      provider_payment_id: `demo_payment_${i + 1}`,
+      status: refunded ? "refunded" : "success",
+      amount_paise: total,
+      currency: "INR",
+      idempotency_key: `demo-idempotency-${i + 1}`,
     });
     await VendorSettlement.create({
-      vendor_order_id: vendorOrder.id, vendor_id: vendor.id, gross_paise: total,
+      vendor_order_id: vendorOrder.id,
+      vendor_id: vendor.id,
+      gross_paise: total,
       commission_paise: commission,
       refund_paise: refunded ? sellerNet : 0,
       commission_reversed_paise: refunded ? commission : 0,
       net_paise: refunded ? 0 : sellerNet,
-      status: settlementStatus, provider_transfer_id: settlementStatus === "paid" ? `SIM-SEED-${String(i + 1).padStart(3, "0")}` : undefined,
-      payout_balance_offset_paise: 0, simulated_payout: settlementStatus === "paid", settled_at: settlementStatus === "paid" ? now : undefined,
+      status: settlementStatus,
+      provider_transfer_id:
+        settlementStatus === "paid"
+          ? `SIM-SEED-${String(i + 1).padStart(3, "0")}`
+          : undefined,
+      payout_balance_offset_paise: 0,
+      simulated_payout: settlementStatus === "paid",
+      settled_at: settlementStatus === "paid" ? now : undefined,
     });
-    if (refunded) await Vendor.updateOne({ _id: vendor.id }, { $set: { payout_balance_paise: -sellerNet } });
+    if (refunded)
+      await Vendor.updateOne(
+        { _id: vendor.id },
+        { $set: { payout_balance_paise: -sellerNet } },
+      );
     await Shipment.create({
-      vendor_order_id: vendorOrder.id, carrier: "Demo Express", tracking_number: `MKTRK${String(i + 1).padStart(6, "0")}`,
-      tracking_url: "https://example.invalid/track", shipped_at: now, delivered_at: now,
+      vendor_order_id: vendorOrder.id,
+      carrier: "Demo Express",
+      tracking_number: `MKTRK${String(i + 1).padStart(6, "0")}`,
+      tracking_url: "https://example.invalid/track",
+      shipped_at: now,
+      delivered_at: now,
     });
-    await OrderStatusHistory.create({ vendor_order_id: vendorOrder.id, previous_status: "shipped", new_status: "delivered", changed_by_user_id: vendor.user_id });
-    await InventoryMovement.create({ product_id: product.id, order_item_id: item.id, quantity_change: -1, reason: "purchase" });
-    await PaymentWebhookEvent.create({ provider: "razorpay", provider_event_id: `demo_event_${i + 1}`, event_type: "payment.captured", status: "processed", processed_at: now });
+    await OrderStatusHistory.create({
+      vendor_order_id: vendorOrder.id,
+      previous_status: "shipped",
+      new_status: "delivered",
+      changed_by_user_id: vendor.user_id,
+    });
+    await InventoryMovement.create({
+      product_id: product.id,
+      order_item_id: item.id,
+      quantity_change: -1,
+      reason: "purchase",
+    });
+    await PaymentWebhookEvent.create({
+      provider: "razorpay",
+      provider_event_id: `demo_event_${i + 1}`,
+      event_type: "payment.captured",
+      status: "processed",
+      processed_at: now,
+    });
     if (i === 0) {
       await PaymentRefundRequest.create({
-        payment_id: payment.id, order_id: order.id, user_id: user.id,
-        reason: "Demo refund record", status: "refunded", provider_refund_id: "demo_refund_1",
-        settlement_adjusted: true, amount_paise: total, reviewed_by: adminId, reviewed_at: now,
+        payment_id: payment.id,
+        order_id: order.id,
+        user_id: user.id,
+        reason: "Demo refund record",
+        status: "refunded",
+        provider_refund_id: "demo_refund_1",
+        settlement_adjusted: true,
+        amount_paise: total,
+        reviewed_by: adminId,
+        reviewed_at: now,
       });
-      await ReturnRequest.create({ order_id: order.id, user_id: user.id, reason: "Demo return record", status: "refunded" });
+      await ReturnRequest.create({
+        order_id: order.id,
+        user_id: user.id,
+        reason: "Demo return record",
+        status: "refunded",
+      });
     }
     if (i === 1) {
-      await CouponRedemption.create({ coupon_id: coupon.id, user_id: user.id, order_id: order.id, discount_paise: discount });
+      await CouponRedemption.create({
+        coupon_id: coupon.id,
+        user_id: user.id,
+        order_id: order.id,
+        discount_paise: discount,
+      });
     }
     if (i === 2) {
-      await Review.create({ product_id: product.id, user_id: user.id, order_item_id: item.id, rating: 5, title: "Great quality", comment: "A useful demo review." });
+      await Review.create({
+        product_id: product.id,
+        user_id: user.id,
+        order_item_id: item.id,
+        rating: 5,
+        title: "Great quality",
+        comment: "A useful demo review.",
+      });
     }
   }
-  await AdminAuditLog.create({ admin_user_id: adminId, action: "seed.database", entity_type: "database", entity_id: databaseName, created_at: now });
+  await AdminAuditLog.create({
+    admin_user_id: adminId,
+    action: "seed.database",
+    entity_type: "database",
+    entity_id: databaseName,
+    created_at: now,
+  });
 
   // MongoDB does not enforce foreign keys. Validate every stored reference before reporting success.
-  const [userIds, vendorIds, categoryIds, productIds, cartIds, couponIds, orderIds,
-    orderItemIds, vendorOrderIds, paymentIds] = await Promise.all([
-    idSet(User), idSet(Vendor), idSet(Category), idSet(Product), idSet(Cart),
-    idSet(Coupon), idSet(Order), idSet(OrderItem), idSet(VendorOrder), idSet(Payment),
+  const [
+    userIds,
+    vendorIds,
+    categoryIds,
+    productIds,
+    cartIds,
+    couponIds,
+    orderIds,
+    orderItemIds,
+    vendorOrderIds,
+    paymentIds,
+  ] = await Promise.all([
+    idSet(User),
+    idSet(Vendor),
+    idSet(Category),
+    idSet(Product),
+    idSet(Cart),
+    idSet(Coupon),
+    idSet(Order),
+    idSet(OrderItem),
+    idSet(VendorOrder),
+    idSet(Payment),
   ]);
-  const [vendorRows, kycRows, productRows, imageRows, addressRows, cartRows, cartItemRows,
-    redemptionRows, orderRows, orderItemRows, returnRows, vendorOrderRows, paymentRows,
-    settlementRows, shipmentRows, historyRows, reviewRows, refundRows, movementRows, auditRows] = await Promise.all([
-    Vendor.find().lean(), VendorKyc.find().lean(), Product.find().lean(), ProductImage.find().lean(),
-    Address.find().lean(), Cart.find().lean(), CartItem.find().lean(), CouponRedemption.find().lean(),
-    Order.find().lean(), OrderItem.find().lean(), ReturnRequest.find().lean(), VendorOrder.find().lean(),
-    Payment.find().lean(), VendorSettlement.find().lean(), Shipment.find().lean(), OrderStatusHistory.find().lean(),
-    Review.find().lean(), PaymentRefundRequest.find().lean(), InventoryMovement.find().lean(), AdminAuditLog.find().lean(),
+  const [
+    vendorRows,
+    kycRows,
+    productRows,
+    imageRows,
+    addressRows,
+    cartRows,
+    cartItemRows,
+    redemptionRows,
+    orderRows,
+    orderItemRows,
+    returnRows,
+    vendorOrderRows,
+    paymentRows,
+    settlementRows,
+    shipmentRows,
+    historyRows,
+    reviewRows,
+    refundRows,
+    movementRows,
+    auditRows,
+  ] = await Promise.all([
+    Vendor.find().lean(),
+    VendorKyc.find().lean(),
+    Product.find().lean(),
+    ProductImage.find().lean(),
+    Address.find().lean(),
+    Cart.find().lean(),
+    CartItem.find().lean(),
+    CouponRedemption.find().lean(),
+    Order.find().lean(),
+    OrderItem.find().lean(),
+    ReturnRequest.find().lean(),
+    VendorOrder.find().lean(),
+    Payment.find().lean(),
+    VendorSettlement.find().lean(),
+    Shipment.find().lean(),
+    OrderStatusHistory.find().lean(),
+    Review.find().lean(),
+    PaymentRefundRequest.find().lean(),
+    InventoryMovement.find().lean(),
+    AdminAuditLog.find().lean(),
   ]);
-  assertForeignKeys("Vendor.user_id", vendorRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("VendorKyc.vendor_id", kycRows.map((row) => row.vendor_id), vendorIds);
-  assertForeignKeys("VendorKyc.reviewed_by_user_id", kycRows.map((row) => row.reviewed_by_user_id), userIds, true);
-  assertForeignKeys("Product.vendor_id", productRows.map((row) => row.vendor_id), vendorIds);
-  assertForeignKeys("Product.category_id", productRows.map((row) => row.category_id), categoryIds);
-  assertForeignKeys("ProductImage.product_id", imageRows.map((row) => row.product_id), productIds);
-  assertForeignKeys("Address.user_id", addressRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("Cart.user_id", cartRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("CartItem.cart_id", cartItemRows.map((row) => row.cart_id), cartIds);
-  assertForeignKeys("CartItem.product_id", cartItemRows.map((row) => row.product_id), productIds);
-  assertForeignKeys("CouponRedemption.coupon_id", redemptionRows.map((row) => row.coupon_id), couponIds);
-  assertForeignKeys("CouponRedemption.user_id", redemptionRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("CouponRedemption.order_id", redemptionRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("Order.user_id", orderRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("Order.cart_id", orderRows.map((row) => row.cart_id), cartIds);
-  assertForeignKeys("OrderItem.order_id", orderItemRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("OrderItem.product_id", orderItemRows.map((row) => row.product_id), productIds);
-  assertForeignKeys("OrderItem.vendor_id", orderItemRows.map((row) => row.vendor_id), vendorIds);
-  assertForeignKeys("ReturnRequest.order_id", returnRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("ReturnRequest.user_id", returnRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("VendorOrder.order_id", vendorOrderRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("VendorOrder.vendor_id", vendorOrderRows.map((row) => row.vendor_id), vendorIds);
-  assertForeignKeys("Payment.order_id", paymentRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("VendorSettlement.vendor_order_id", settlementRows.map((row) => row.vendor_order_id), vendorOrderIds);
-  assertForeignKeys("VendorSettlement.vendor_id", settlementRows.map((row) => row.vendor_id), vendorIds);
-  assertForeignKeys("Shipment.vendor_order_id", shipmentRows.map((row) => row.vendor_order_id), vendorOrderIds);
-  assertForeignKeys("OrderStatusHistory.vendor_order_id", historyRows.map((row) => row.vendor_order_id), vendorOrderIds);
-  assertForeignKeys("OrderStatusHistory.changed_by_user_id", historyRows.map((row) => row.changed_by_user_id), userIds);
-  assertForeignKeys("Review.product_id", reviewRows.map((row) => row.product_id), productIds);
-  assertForeignKeys("Review.user_id", reviewRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("Review.order_item_id", reviewRows.map((row) => row.order_item_id), orderItemIds);
-  assertForeignKeys("PaymentRefundRequest.payment_id", refundRows.map((row) => row.payment_id), paymentIds);
-  assertForeignKeys("PaymentRefundRequest.order_id", refundRows.map((row) => row.order_id), orderIds);
-  assertForeignKeys("PaymentRefundRequest.user_id", refundRows.map((row) => row.user_id), userIds);
-  assertForeignKeys("PaymentRefundRequest.reviewed_by", refundRows.map((row) => row.reviewed_by), userIds, true);
-  assertForeignKeys("InventoryMovement.product_id", movementRows.map((row) => row.product_id), productIds);
-  assertForeignKeys("InventoryMovement.order_item_id", movementRows.map((row) => row.order_item_id), orderItemIds, true);
-  assertForeignKeys("AdminAuditLog.admin_user_id", auditRows.map((row) => row.admin_user_id), userIds);
+  assertForeignKeys(
+    "Vendor.user_id",
+    vendorRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "VendorKyc.vendor_id",
+    kycRows.map((row) => row.vendor_id),
+    vendorIds,
+  );
+  assertForeignKeys(
+    "VendorKyc.reviewed_by_user_id",
+    kycRows.map((row) => row.reviewed_by_user_id),
+    userIds,
+    true,
+  );
+  assertForeignKeys(
+    "Product.vendor_id",
+    productRows.map((row) => row.vendor_id),
+    vendorIds,
+  );
+  assertForeignKeys(
+    "Product.category_id",
+    productRows.map((row) => row.category_id),
+    categoryIds,
+  );
+  assertForeignKeys(
+    "ProductImage.product_id",
+    imageRows.map((row) => row.product_id),
+    productIds,
+  );
+  assertForeignKeys(
+    "Address.user_id",
+    addressRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "Cart.user_id",
+    cartRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "CartItem.cart_id",
+    cartItemRows.map((row) => row.cart_id),
+    cartIds,
+  );
+  assertForeignKeys(
+    "CartItem.product_id",
+    cartItemRows.map((row) => row.product_id),
+    productIds,
+  );
+  assertForeignKeys(
+    "CouponRedemption.coupon_id",
+    redemptionRows.map((row) => row.coupon_id),
+    couponIds,
+  );
+  assertForeignKeys(
+    "CouponRedemption.user_id",
+    redemptionRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "CouponRedemption.order_id",
+    redemptionRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "Order.user_id",
+    orderRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "Order.cart_id",
+    orderRows.map((row) => row.cart_id),
+    cartIds,
+  );
+  assertForeignKeys(
+    "OrderItem.order_id",
+    orderItemRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "OrderItem.product_id",
+    orderItemRows.map((row) => row.product_id),
+    productIds,
+  );
+  assertForeignKeys(
+    "OrderItem.vendor_id",
+    orderItemRows.map((row) => row.vendor_id),
+    vendorIds,
+  );
+  assertForeignKeys(
+    "ReturnRequest.order_id",
+    returnRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "ReturnRequest.user_id",
+    returnRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "VendorOrder.order_id",
+    vendorOrderRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "VendorOrder.vendor_id",
+    vendorOrderRows.map((row) => row.vendor_id),
+    vendorIds,
+  );
+  assertForeignKeys(
+    "Payment.order_id",
+    paymentRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "VendorSettlement.vendor_order_id",
+    settlementRows.map((row) => row.vendor_order_id),
+    vendorOrderIds,
+  );
+  assertForeignKeys(
+    "VendorSettlement.vendor_id",
+    settlementRows.map((row) => row.vendor_id),
+    vendorIds,
+  );
+  assertForeignKeys(
+    "Shipment.vendor_order_id",
+    shipmentRows.map((row) => row.vendor_order_id),
+    vendorOrderIds,
+  );
+  assertForeignKeys(
+    "OrderStatusHistory.vendor_order_id",
+    historyRows.map((row) => row.vendor_order_id),
+    vendorOrderIds,
+  );
+  assertForeignKeys(
+    "OrderStatusHistory.changed_by_user_id",
+    historyRows.map((row) => row.changed_by_user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "Review.product_id",
+    reviewRows.map((row) => row.product_id),
+    productIds,
+  );
+  assertForeignKeys(
+    "Review.user_id",
+    reviewRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "Review.order_item_id",
+    reviewRows.map((row) => row.order_item_id),
+    orderItemIds,
+  );
+  assertForeignKeys(
+    "PaymentRefundRequest.payment_id",
+    refundRows.map((row) => row.payment_id),
+    paymentIds,
+  );
+  assertForeignKeys(
+    "PaymentRefundRequest.order_id",
+    refundRows.map((row) => row.order_id),
+    orderIds,
+  );
+  assertForeignKeys(
+    "PaymentRefundRequest.user_id",
+    refundRows.map((row) => row.user_id),
+    userIds,
+  );
+  assertForeignKeys(
+    "PaymentRefundRequest.reviewed_by",
+    refundRows.map((row) => row.reviewed_by),
+    userIds,
+    true,
+  );
+  assertForeignKeys(
+    "InventoryMovement.product_id",
+    movementRows.map((row) => row.product_id),
+    productIds,
+  );
+  assertForeignKeys(
+    "InventoryMovement.order_item_id",
+    movementRows.map((row) => row.order_item_id),
+    orderItemIds,
+    true,
+  );
+  assertForeignKeys(
+    "AdminAuditLog.admin_user_id",
+    auditRows.map((row) => row.admin_user_id),
+    userIds,
+  );
 
   for (const item of orderItemRows) {
-    const product = productRows.find((row) => row.id === item.product_id || String(row._id) === item.product_id);
-    if (product?.vendor_id !== item.vendor_id) throw new Error(`OrderItem ${item.id} vendor does not own its product.`);
+    const product = productRows.find(
+      (row) =>
+        row.id === item.product_id || String(row._id) === item.product_id,
+    );
+    if (product?.vendor_id !== item.vendor_id)
+      throw new Error(`OrderItem ${item.id} vendor does not own its product.`);
   }
   for (const order of orderRows) {
-    const cart = cartRows.find((row) => row.id === order.cart_id || String(row._id) === order.cart_id);
-    if (cart?.user_id !== order.user_id) throw new Error(`Order ${order.id} cart belongs to a different user.`);
+    const cart = cartRows.find(
+      (row) => row.id === order.cart_id || String(row._id) === order.cart_id,
+    );
+    if (cart?.user_id !== order.user_id)
+      throw new Error(`Order ${order.id} cart belongs to a different user.`);
   }
   for (const redemption of redemptionRows) {
-    const order = orderRows.find((row) => row.id === redemption.order_id || String(row._id) === redemption.order_id);
-    if (order?.user_id !== redemption.user_id) throw new Error(`Coupon redemption ${redemption.id} user does not own its order.`);
+    const order = orderRows.find(
+      (row) =>
+        row.id === redemption.order_id ||
+        String(row._id) === redemption.order_id,
+    );
+    if (order?.user_id !== redemption.user_id)
+      throw new Error(
+        `Coupon redemption ${redemption.id} user does not own its order.`,
+      );
   }
   for (const returnRequest of returnRows) {
-    const order = orderRows.find((row) => row.id === returnRequest.order_id || String(row._id) === returnRequest.order_id);
-    if (order?.user_id !== returnRequest.user_id) throw new Error(`Return ${returnRequest.id} user does not own its order.`);
+    const order = orderRows.find(
+      (row) =>
+        row.id === returnRequest.order_id ||
+        String(row._id) === returnRequest.order_id,
+    );
+    if (order?.user_id !== returnRequest.user_id)
+      throw new Error(
+        `Return ${returnRequest.id} user does not own its order.`,
+      );
   }
   for (const vendorOrder of vendorOrderRows) {
-    const hasVendorItem = orderItemRows.some((row) => row.order_id === vendorOrder.order_id && row.vendor_id === vendorOrder.vendor_id);
-    if (!hasVendorItem) throw new Error(`Vendor order ${vendorOrder.id} has no order item for its vendor.`);
+    const hasVendorItem = orderItemRows.some(
+      (row) =>
+        row.order_id === vendorOrder.order_id &&
+        row.vendor_id === vendorOrder.vendor_id,
+    );
+    if (!hasVendorItem)
+      throw new Error(
+        `Vendor order ${vendorOrder.id} has no order item for its vendor.`,
+      );
   }
   for (const movement of movementRows) {
     if (movement.order_item_id) {
-      const item = orderItemRows.find((row) => row.id === movement.order_item_id || String(row._id) === movement.order_item_id);
-      if (item?.product_id !== movement.product_id) throw new Error(`Inventory movement ${movement.id} product does not match its order item.`);
+      const item = orderItemRows.find(
+        (row) =>
+          row.id === movement.order_item_id ||
+          String(row._id) === movement.order_item_id,
+      );
+      if (item?.product_id !== movement.product_id)
+        throw new Error(
+          `Inventory movement ${movement.id} product does not match its order item.`,
+        );
     }
   }
   for (const settlement of settlementRows) {
-    const vendorOrder = vendorOrderRows.find((row) => row.id === settlement.vendor_order_id || String(row._id) === settlement.vendor_order_id);
-    if (vendorOrder?.vendor_id !== settlement.vendor_id) throw new Error(`Settlement ${settlement.id} vendor does not match its vendor order.`);
+    const vendorOrder = vendorOrderRows.find(
+      (row) =>
+        row.id === settlement.vendor_order_id ||
+        String(row._id) === settlement.vendor_order_id,
+    );
+    if (vendorOrder?.vendor_id !== settlement.vendor_id)
+      throw new Error(
+        `Settlement ${settlement.id} vendor does not match its vendor order.`,
+      );
   }
   for (const history of historyRows) {
-    const vendorOrder = vendorOrderRows.find((row) => row.id === history.vendor_order_id || String(row._id) === history.vendor_order_id);
-    const vendor = vendorRows.find((row) => row.id === vendorOrder?.vendor_id || String(row._id) === vendorOrder?.vendor_id);
-    if (vendor?.user_id !== history.changed_by_user_id) throw new Error(`Status history ${history.id} actor does not own its vendor order.`);
+    const vendorOrder = vendorOrderRows.find(
+      (row) =>
+        row.id === history.vendor_order_id ||
+        String(row._id) === history.vendor_order_id,
+    );
+    const vendor = vendorRows.find(
+      (row) =>
+        row.id === vendorOrder?.vendor_id ||
+        String(row._id) === vendorOrder?.vendor_id,
+    );
+    if (vendor?.user_id !== history.changed_by_user_id)
+      throw new Error(
+        `Status history ${history.id} actor does not own its vendor order.`,
+      );
   }
   for (const refund of refundRows) {
-    const payment = paymentRows.find((row) => row.id === refund.payment_id || String(row._id) === refund.payment_id);
-    if (payment?.order_id !== refund.order_id) throw new Error(`Refund ${refund.id} payment belongs to a different order.`);
-    const order = orderRows.find((row) => row.id === refund.order_id || String(row._id) === refund.order_id);
-    if (order?.user_id !== refund.user_id) throw new Error(`Refund ${refund.id} user does not own its order.`);
+    const payment = paymentRows.find(
+      (row) =>
+        row.id === refund.payment_id || String(row._id) === refund.payment_id,
+    );
+    if (payment?.order_id !== refund.order_id)
+      throw new Error(
+        `Refund ${refund.id} payment belongs to a different order.`,
+      );
+    const order = orderRows.find(
+      (row) =>
+        row.id === refund.order_id || String(row._id) === refund.order_id,
+    );
+    if (order?.user_id !== refund.user_id)
+      throw new Error(`Refund ${refund.id} user does not own its order.`);
   }
   for (const review of reviewRows) {
-    const item = orderItemRows.find((row) => row.id === review.order_item_id || String(row._id) === review.order_item_id);
-    if (item?.product_id !== review.product_id) throw new Error(`Review ${review.id} product does not match its order item.`);
-    const order = orderRows.find((row) => row.id === item?.order_id || String(row._id) === item?.order_id);
-    if (order?.user_id !== review.user_id) throw new Error(`Review ${review.id} user does not own its order.`);
+    const item = orderItemRows.find(
+      (row) =>
+        row.id === review.order_item_id ||
+        String(row._id) === review.order_item_id,
+    );
+    if (item?.product_id !== review.product_id)
+      throw new Error(
+        `Review ${review.id} product does not match its order item.`,
+      );
+    const order = orderRows.find(
+      (row) => row.id === item?.order_id || String(row._id) === item?.order_id,
+    );
+    if (order?.user_id !== review.user_id)
+      throw new Error(`Review ${review.id} user does not own its order.`);
   }
 
   const activeProducts = await Product.find({ status: "active" }).lean();
@@ -406,20 +853,60 @@ async function main() {
   }
   await elasticsearchRequest("POST", "products/_refresh");
   const indexStatus = await elasticsearchRequest("GET", "products/_count");
-  if (typeof indexStatus.count !== "number" || indexStatus.count !== activeProducts.length) {
-    throw new Error(`Elasticsearch indexed ${String(indexStatus.count)} products; expected ${activeProducts.length}.`);
+  if (
+    typeof indexStatus.count !== "number" ||
+    indexStatus.count !== activeProducts.length
+  ) {
+    throw new Error(
+      `Elasticsearch indexed ${String(indexStatus.count)} products; expected ${activeProducts.length}.`,
+    );
   }
 
-  const counts = await Promise.all([
-    User, Vendor, VendorKyc, Category, Product, ProductImage, Address, Cart, CartItem, Coupon, CouponRedemption,
-    Order, OrderItem, ReturnRequest, VendorOrder, Payment, VendorSettlement, Shipment, OrderStatusHistory,
-    Review, PaymentWebhookEvent, PaymentRefundRequest, InventoryMovement, AdminAuditLog,
-  ].map(async (model) => `${model.collection.collectionName}: ${await model.countDocuments()}`));
-  console.log(`Seed complete. ${products.length} products across ${categoryDocs.length} categories.`);
-  console.log(`Indexed and verified ${activeProducts.length} active products in Elasticsearch.`);
+  const counts = await Promise.all(
+    [
+      User,
+      Vendor,
+      VendorKyc,
+      Category,
+      Product,
+      ProductImage,
+      Address,
+      Cart,
+      CartItem,
+      Coupon,
+      CouponRedemption,
+      Order,
+      OrderItem,
+      ReturnRequest,
+      VendorOrder,
+      Payment,
+      VendorSettlement,
+      Shipment,
+      OrderStatusHistory,
+      Review,
+      PaymentWebhookEvent,
+      PaymentRefundRequest,
+      InventoryMovement,
+      AdminAuditLog,
+    ].map(
+      async (model) =>
+        `${model.collection.collectionName}: ${await model.countDocuments()}`,
+    ),
+  );
+  console.log(
+    `Seed complete. ${products.length} products across ${categoryDocs.length} categories.`,
+  );
+  console.log(
+    `Indexed and verified ${activeProducts.length} active products in Elasticsearch.`,
+  );
   console.log(counts.join("\n"));
 }
 
 main()
-  .catch((error) => { console.error("Seed failed:", error); process.exitCode = 1; })
-  .finally(async () => { await User.db.close(); });
+  .catch((error) => {
+    console.error("Seed failed:", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await User.db.close();
+  });

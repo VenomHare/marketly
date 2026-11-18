@@ -6,14 +6,14 @@ These are local/demo credentials. Change them before using this database in a sh
 
 ## Admin
 
-| Role | Email | Password |
-| --- | --- | --- |
+| Role  | Email                 | Password            |
+| ----- | --------------------- | ------------------- |
 | Admin | `admin@marketly.demo` | `MarketlyDemo!2026` |
 
 ## Customers
 
-| Role | Email | Password |
-| --- | --- | --- |
+| Role     | Email                      | Password            |
+| -------- | -------------------------- | ------------------- |
 | Customer | `customer01@marketly.demo` | `MarketlyDemo!2026` |
 | Customer | `customer02@marketly.demo` | `MarketlyDemo!2026` |
 | Customer | `customer03@marketly.demo` | `MarketlyDemo!2026` |
@@ -27,17 +27,17 @@ These are local/demo credentials. Change them before using this database in a sh
 
 ## Vendors
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Vendor 1 | `vendor01@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 2 | `vendor02@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 3 | `vendor03@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 4 | `vendor04@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 5 | `vendor05@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 6 | `vendor06@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 7 | `vendor07@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 8 | `vendor08@marketly.demo` | `MarketlyDemo!2026` |
-| Vendor 9 | `vendor09@marketly.demo` | `MarketlyDemo!2026` |
+| Role      | Email                    | Password            |
+| --------- | ------------------------ | ------------------- |
+| Vendor 1  | `vendor01@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 2  | `vendor02@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 3  | `vendor03@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 4  | `vendor04@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 5  | `vendor05@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 6  | `vendor06@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 7  | `vendor07@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 8  | `vendor08@marketly.demo` | `MarketlyDemo!2026` |
+| Vendor 9  | `vendor09@marketly.demo` | `MarketlyDemo!2026` |
 | Vendor 10 | `vendor10@marketly.demo` | `MarketlyDemo!2026` |
 
 ## Run

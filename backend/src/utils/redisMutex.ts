@@ -22,9 +22,14 @@ export class RedisMutexTimeoutError extends Error {
   }
 }
 
-const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export const acquireRedisMutex = async (key: string, timeoutMs = 10_000, leaseMs = 60_000) => {
+export const acquireRedisMutex = async (
+  key: string,
+  timeoutMs = 10_000,
+  leaseMs = 60_000,
+) => {
   const redis = await getRedisClient();
   const redisKey = `marketly:mutex:${key}`;
   const ownerToken = randomUUID();
@@ -38,28 +43,35 @@ export const acquireRedisMutex = async (key: string, timeoutMs = 10_000, leaseMs
     if (acquired === "OK") {
       let lost = false;
       let renewing = false;
-      const heartbeat = setInterval(async () => {
-        if (renewing || lost) return;
-        renewing = true;
-        try {
-          const renewed = await redis.eval(RENEW_SCRIPT, {
-            keys: [redisKey],
-            arguments: [ownerToken, String(leaseMs)],
-          });
-          if (Number(renewed) !== 1) lost = true;
-        } catch {
-          lost = true;
-        } finally {
-          renewing = false;
-        }
-      }, Math.max(1000, Math.floor(leaseMs / 3)));
+      const heartbeat = setInterval(
+        async () => {
+          if (renewing || lost) return;
+          renewing = true;
+          try {
+            const renewed = await redis.eval(RENEW_SCRIPT, {
+              keys: [redisKey],
+              arguments: [ownerToken, String(leaseMs)],
+            });
+            if (Number(renewed) !== 1) lost = true;
+          } catch {
+            lost = true;
+          } finally {
+            renewing = false;
+          }
+        },
+        Math.max(1000, Math.floor(leaseMs / 3)),
+      );
       heartbeat.unref();
 
       return async () => {
         clearInterval(heartbeat);
         while (renewing) await delay(10);
-        const released = await redis.eval(RELEASE_SCRIPT, { keys: [redisKey], arguments: [ownerToken] });
-        if (lost || Number(released) !== 1) throw new Error(`Redis mutex lease was lost: ${key}`);
+        const released = await redis.eval(RELEASE_SCRIPT, {
+          keys: [redisKey],
+          arguments: [ownerToken],
+        });
+        if (lost || Number(released) !== 1)
+          throw new Error(`Redis mutex lease was lost: ${key}`);
       };
     }
     await delay(20 + Math.floor(Math.random() * 30));
@@ -70,7 +82,8 @@ export const acquireRedisMutex = async (key: string, timeoutMs = 10_000, leaseMs
 export const acquireRedisMutexes = async (keys: string[]) => {
   const releases: Array<() => Promise<void>> = [];
   try {
-    for (const key of [...new Set(keys)].sort()) releases.push(await acquireRedisMutex(key));
+    for (const key of [...new Set(keys)].sort())
+      releases.push(await acquireRedisMutex(key));
   } catch (error) {
     for (const release of releases.reverse()) await release();
     throw error;

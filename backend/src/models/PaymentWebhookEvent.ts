@@ -16,12 +16,22 @@ const PaymentWebhookEventSchema = new Schema<IPaymentWebhookEvent>(
     provider_event_id: { type: String, required: true },
     event_type: { type: String, required: true },
     processed_at: { type: Date },
-    status: { type: String, enum: ["received", "processed", "failed"], default: "received" },
+    status: {
+      type: String,
+      enum: ["received", "processed", "failed"],
+      default: "received",
+    },
     received_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "received_at" } }
+  { timestamps: { createdAt: "received_at" } },
 );
 
-PaymentWebhookEventSchema.index({ provider: 1, provider_event_id: 1 }, { unique: true });
+PaymentWebhookEventSchema.index(
+  { provider: 1, provider_event_id: 1 },
+  { unique: true },
+);
 
-export default mongoose.model<IPaymentWebhookEvent>("PaymentWebhookEvent", PaymentWebhookEventSchema);
+export default mongoose.model<IPaymentWebhookEvent>(
+  "PaymentWebhookEvent",
+  PaymentWebhookEventSchema,
+);

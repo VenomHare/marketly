@@ -30,7 +30,8 @@ categoriesRouter.get("/categories/:uuid", async (req, res) => {
 
   try {
     const category = await Category.findById(categoryId).lean();
-    if (!category) return res.status(404).json({ message: "Category not found" });
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
     return res.json({
       id: category._id.toString(),
       name: category.name,
@@ -49,17 +50,23 @@ categoriesRouter.get("/categories/:uuid/products", async (req, res) => {
     return res.status(400).json({ message: "Invalid category id" });
   }
   const validation = categoryProductsQuerySchema.safeParse(req.query);
-  if (!validation.success) return res.status(400).json({ message: "Invalid parameters" });
+  if (!validation.success)
+    return res.status(400).json({ message: "Invalid parameters" });
 
   try {
     const category = await Category.findById(categoryId).select("_id");
-    if (!category) return res.status(404).json({ message: "Category not found" });
+    if (!category)
+      return res.status(404).json({ message: "Category not found" });
 
     const { page, limit } = validation.data;
     const filter = { category_id: categoryId, status: "active" as const };
     const sort: Record<string, SortOrder> = { created_at: -1, _id: -1 };
     const [products, total] = await Promise.all([
-      Product.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
+      Product.find(filter)
+        .sort(sort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
       Product.countDocuments(filter),
     ]);
     return res.json({
@@ -82,7 +89,9 @@ categoriesRouter.get("/categories/:uuid/products", async (req, res) => {
     });
   } catch (error) {
     console.error("List category products error:", error);
-    return res.status(500).json({ message: "Failed to fetch category products" });
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch category products" });
   }
 });
 

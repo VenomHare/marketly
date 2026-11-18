@@ -1,30 +1,34 @@
-/vendors/me/dashboard# Ecommerce Platform 
+/vendors/me/dashboard# Ecommerce Platform
+
 - Clone of amazon, flipkart, etc
 
 ## Base Idea
-1. Vendor Signs up 
+
+1. Vendor Signs up
 2. Lists Item (Uploads images, adds tags, give details)
-3. Customers logs in website 
+3. Customers logs in website
 4. searches for product
-5. Products get listed 
+5. Products get listed
 6. Customer veiw images, details, reviews
 7. Adds to Cart
 8. Applies Coupoun - get's a discount
-9. Adds Delivery Address 
+9. Adds Delivery Address
 10. Pays the amount to confirm order
 11. Order Tracking Mechanism
-12. Analytics page for Website Admin and Vendors 
-
+12. Analytics page for Website Admin and Vendors
 
 ## Stack
+
 1. **Backend:** Express.js, MongoDB, Razorpay, Elasticsearch, and Redis
 2. **Frontend:** React, Vite, TailwindCSS, React Router
 
 > [!NOTE]
 > AWS S3 is replaced by Cloudflare R2 since both have same API SDK and R2 is free.
+
 ## Database Schema
 
 **User**
+
 - id: uuid (string)
 - name: string
 - email: string (unique)
@@ -35,6 +39,7 @@
 - updated_at: timestamp
 
 **Vendor**
+
 - id: uuid (string)
 - user_id: uuid (FK → User)
 - name: string
@@ -47,6 +52,7 @@
 - updated_at: timestamp
 
 **VendorKycSubmission**
+
 - id: uuid (string)
 - vendor_id: uuid (unique FK → Vendor)
 - address_proof_key: string (private R2 object key)
@@ -61,6 +67,7 @@
 KYC images are stored in a private R2 bucket. Vendors submit one address proof image and one identity proof image using object keys from the upload flow. Submission waits for admin review; rejected vendors may resubmit. Product creation and vendor product changes require verified KYC. Admin document access must use short-lived private download URLs.
 
 **Product**
+
 - id: uuid (string)
 - vendor_id: uuid (FK → Vendor)
 - category_id: uuid (FK → Category)
@@ -76,6 +83,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - updated_at: timestamp
 
 **ProductImage**
+
 - id: uuid (string)
 - product_id: uuid (FK → Product)
 - object_key: string (R2 object key)
@@ -83,12 +91,14 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - position: number
 
 **Category**
+
 - id: uuid (string)
 - name: string
 - slug: string (unique)
 - parent_id: uuid (optional, FK → Category)
 
 **Address**
+
 - id: uuid (string)
 - user_id: uuid (FK → User)
 - label: string ("Home", "Work", etc.)
@@ -103,6 +113,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - created_at: timestamp
 
 **Cart**
+
 - id: uuid (string)
 - user_id: uuid (optional, FK → User)
 - session_id: string (optional)
@@ -110,6 +121,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - expires_at: timestamp (optional)
 
 **CartItem**
+
 - id: uuid (string)
 - cart_id: uuid (FK → Cart)
 - product_id: uuid (FK → Product)
@@ -117,6 +129,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - added_at: timestamp
 
 **Coupon**
+
 - id: uuid (string)
 - code: string (unique)
 - vendor_id: uuid (optional; owner for vendor-created coupons)
@@ -131,6 +144,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - is_active: boolean
 
 **CouponRedemption**
+
 - id: uuid (string)
 - coupon_id: uuid (FK → Coupon)
 - user_id: uuid (FK → User)
@@ -139,6 +153,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - redeemed_at: timestamp
 
 **Order**
+
 - id: uuid (string)
 - user_id: uuid (FK → User)
 - address_snapshot: object
@@ -152,6 +167,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - updated_at: timestamp
 
 **OrderItem**
+
 - id: uuid (string)
 - order_id: uuid (FK → Order)
 - product_id: uuid (FK → Product)
@@ -164,6 +180,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - line_total_paise: number
 
 **VendorOrder**
+
 - id: uuid (string)
 - order_id: uuid (FK → Order)
 - vendor_id: uuid (FK → Vendor)
@@ -172,6 +189,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - updated_at: timestamp
 
 **Payment**
+
 - id: uuid (string)
 - order_id: uuid (FK → Order)
 - provider: "razorpay" | "stripe"
@@ -185,6 +203,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 - updated_at: timestamp
 
 **PaymentRefundRequest**
+
 - id: uuid (string)
 - payment_id: uuid (FK → Payment)
 - order_id: uuid (FK → Order)
@@ -201,6 +220,7 @@ KYC images are stored in a private R2 bucket. Vendors submit one address proof i
 Refund request records are retained for audit. The collection has a non-unique compound index on `{ payment_id, status }`; application logic serializes request creation per payment and allows admin review only while status is `requested`.
 
 **VendorSettlement**
+
 - id: uuid (string)
 - vendor_order_id: uuid (FK → VendorOrder)
 - vendor_id: uuid (FK → Vendor)
@@ -214,6 +234,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - settled_at: timestamp (optional)
 
 **Shipment**
+
 - id: uuid (string)
 - vendor_order_id: uuid (FK → VendorOrder)
 - carrier: string (optional)
@@ -223,6 +244,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - delivered_at: timestamp (optional)
 
 **OrderStatusHistory**
+
 - id: uuid (string)
 - vendor_order_id: uuid (FK → VendorOrder)
 - previous_status: string (optional)
@@ -231,6 +253,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - created_at: timestamp
 
 **Review**
+
 - id: uuid (string)
 - product_id: uuid (FK → Product)
 - user_id: uuid (FK → User)
@@ -241,6 +264,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - created_at: timestamp
 
 **PaymentWebhookEvent**
+
 - id: uuid (string)
 - provider: "razorpay" | "stripe"
 - provider_event_id: string
@@ -250,6 +274,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - received_at: timestamp
 
 **InventoryMovement**
+
 - id: uuid (string)
 - product_id: uuid (FK → Product)
 - order_item_id: uuid (optional, FK → OrderItem)
@@ -258,6 +283,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - created_at: timestamp
 
 **AdminAuditLog**
+
 - id: uuid (string)
 - admin_user_id: uuid (FK → User)
 - action: string
@@ -266,6 +292,7 @@ Refund request records are retained for audit. The collection has a non-unique c
 - created_at: timestamp
 
 ## API List
+
 **Base URL:** `/api/v1`
 
 Admin endpoints are listed in a dedicated section below and are registered in the centralized admin router.

@@ -17,7 +17,10 @@ const CouponRedemptionSchema = new Schema<ICouponRedemption>(
     discount_paise: { type: Number, required: true },
     redeemed_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "redeemed_at" } }
+  { timestamps: { createdAt: "redeemed_at" } },
 );
 
-export default mongoose.model<ICouponRedemption>("CouponRedemption", CouponRedemptionSchema);
+export default mongoose.model<ICouponRedemption>(
+  "CouponRedemption",
+  CouponRedemptionSchema,
+);

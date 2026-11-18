@@ -2,7 +2,10 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Address, { IAddress } from "../models/Address.js";
 import { authenticate, AuthRequest } from "../middleware/auth.js";
-import { addressCreateSchema, addressUpdateSchema } from "../validators/addresses.js";
+import {
+  addressCreateSchema,
+  addressUpdateSchema,
+} from "../validators/addresses.js";
 
 const addressesRouter = Router();
 
@@ -29,12 +32,18 @@ addressesRouter.post("/addresses", authenticate, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({
       message: "Invalid address",
-      errors: parsed.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+      errors: parsed.error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })),
     });
   }
 
   try {
-    const address = await Address.create({ ...parsed.data, user_id: authReq.user.id });
+    const address = await Address.create({
+      ...parsed.data,
+      user_id: authReq.user.id,
+    });
     return res.status(201).json({ address: serializeAddress(address) });
   } catch {
     return res.status(500).json({ message: "Failed to create address" });
@@ -51,7 +60,10 @@ addressesRouter.get("/addresses", authenticate, async (req, res) => {
   }
 
   try {
-    const addresses = await Address.find({ user_id: authReq.user.id }).sort({ created_at: -1, _id: -1 });
+    const addresses = await Address.find({ user_id: authReq.user.id }).sort({
+      created_at: -1,
+      _id: -1,
+    });
     return res.status(200).json({ addresses: addresses.map(serializeAddress) });
   } catch {
     return res.status(500).json({ message: "Failed to retrieve addresses" });
@@ -64,10 +76,14 @@ addressesRouter.get("/addresses/:uuid", authenticate, async (req, res) => {
     return res.status(403).json({ message: "Customer access required" });
   }
   const { uuid } = req.params;
-  if (!mongoose.isValidObjectId(uuid)) return res.status(400).json({ message: "Address ID must be valid" });
+  if (!mongoose.isValidObjectId(uuid))
+    return res.status(400).json({ message: "Address ID must be valid" });
 
   try {
-    const address = await Address.findOne({ _id: uuid, user_id: authReq.user.id });
+    const address = await Address.findOne({
+      _id: uuid,
+      user_id: authReq.user.id,
+    });
     if (!address) return res.status(404).json({ message: "Address not found" });
     return res.status(200).json({ address: serializeAddress(address) });
   } catch {
@@ -81,12 +97,16 @@ addressesRouter.patch("/addresses/:uuid", authenticate, async (req, res) => {
     return res.status(403).json({ message: "Customer access required" });
   }
   const { uuid } = req.params;
-  if (!mongoose.isValidObjectId(uuid)) return res.status(400).json({ message: "Address ID must be valid" });
+  if (!mongoose.isValidObjectId(uuid))
+    return res.status(400).json({ message: "Address ID must be valid" });
   const parsed = addressUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({
       message: "Invalid address update",
-      errors: parsed.error.issues.map((issue) => ({ field: issue.path.join("."), message: issue.message })),
+      errors: parsed.error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })),
     });
   }
 
@@ -94,7 +114,7 @@ addressesRouter.patch("/addresses/:uuid", authenticate, async (req, res) => {
     const address = await Address.findOneAndUpdate(
       { _id: uuid, user_id: authReq.user.id },
       { $set: parsed.data },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     );
     if (!address) return res.status(404).json({ message: "Address not found" });
     return res.status(200).json({ address: serializeAddress(address) });
@@ -109,11 +129,16 @@ addressesRouter.delete("/addresses/:uuid", authenticate, async (req, res) => {
     return res.status(403).json({ message: "Customer access required" });
   }
   const { uuid } = req.params;
-  if (!mongoose.isValidObjectId(uuid)) return res.status(400).json({ message: "Address ID must be valid" });
+  if (!mongoose.isValidObjectId(uuid))
+    return res.status(400).json({ message: "Address ID must be valid" });
 
   try {
-    const result = await Address.deleteOne({ _id: uuid, user_id: authReq.user.id });
-    if (result.deletedCount === 0) return res.status(404).json({ message: "Address not found" });
+    const result = await Address.deleteOne({
+      _id: uuid,
+      user_id: authReq.user.id,
+    });
+    if (result.deletedCount === 0)
+      return res.status(404).json({ message: "Address not found" });
     return res.status(204).send();
   } catch {
     return res.status(500).json({ message: "Failed to delete address" });

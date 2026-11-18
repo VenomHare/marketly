@@ -17,7 +17,10 @@ const AdminAuditLogSchema = new Schema<IAdminAuditLog>(
     entity_id: { type: String, required: true },
     created_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at" } }
+  { timestamps: { createdAt: "created_at" } },
 );
 
-export default mongoose.model<IAdminAuditLog>("AdminAuditLog", AdminAuditLogSchema);
+export default mongoose.model<IAdminAuditLog>(
+  "AdminAuditLog",
+  AdminAuditLogSchema,
+);

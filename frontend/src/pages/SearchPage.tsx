@@ -1,113 +1,218 @@
-import { useMemo } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
-import { ProductGrid } from '../components/shared/ProductGrid'
-import { useCategories, useSearchProducts } from '../features/catalog/hooks'
-import { useDocumentTitle } from '../utils/use-document-title'
+import { useMemo } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
+import { ProductGrid } from "../components/shared/ProductGrid";
+import { useCategories, useSearchProducts } from "../features/catalog/hooks";
+import { useDocumentTitle } from "../utils/use-document-title";
 
 const sortOptions = [
-  { value: ':', label: 'Featured' },
-  { value: 'price:asc', label: 'Price: Low to High' },
-  { value: 'price:desc', label: 'Price: High to Low' },
-  { value: 'created_at:desc', label: 'Newest Arrivals' },
-]
+  { value: ":", label: "Featured" },
+  { value: "price:asc", label: "Price: Low to High" },
+  { value: "price:desc", label: "Price: High to Low" },
+  { value: "created_at:desc", label: "Newest Arrivals" },
+];
 
 export function SearchPage() {
-  const { slug } = useParams()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const categories = useCategories()
+  const { slug } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categories = useCategories();
   const requestParams = useMemo(() => {
-    const params = new URLSearchParams(searchParams)
+    const params = new URLSearchParams(searchParams);
     if (slug) {
-      const categoryId = categories.data?.categories.find(category => category.slug === slug)?.id || slug
-      params.set('category', categoryId)
+      const categoryId =
+        categories.data?.categories.find((category) => category.slug === slug)
+          ?.id || slug;
+      params.set("category", categoryId);
     }
-    if (!params.has('limit')) params.set('limit', '20')
-    return params
-  }, [categories.data, searchParams, slug])
-  const results = useSearchProducts(requestParams.toString())
-  const q = searchParams.get('q')
-  const pageTitle = q || categories.data?.categories.find(category => category.slug === slug)?.name || 'Shop'
-  useDocumentTitle(pageTitle)
+    if (!params.has("limit")) params.set("limit", "20");
+    return params;
+  }, [categories.data, searchParams, slug]);
+  const results = useSearchProducts(requestParams.toString());
+  const q = searchParams.get("q");
+  const pageTitle =
+    q ||
+    categories.data?.categories.find((category) => category.slug === slug)
+      ?.name ||
+    "Shop";
+  useDocumentTitle(pageTitle);
 
   function changeFilter(name: string, value: string) {
-    const next = new URLSearchParams(searchParams)
-    if (value) next.set(name, value)
-    else next.delete(name)
-    next.delete('page')
-    setSearchParams(next)
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(name, value);
+    else next.delete(name);
+    next.delete("page");
+    setSearchParams(next);
   }
 
   function changeSort(value: string) {
-    const [sortBy, order] = value.split(':')
-    const next = new URLSearchParams(searchParams)
-    if (sortBy) next.set('sortBy', sortBy)
-    else next.delete('sortBy')
-    if (order) next.set('order', order)
-    else next.delete('order')
-    next.delete('page')
-    setSearchParams(next)
+    const [sortBy, order] = value.split(":");
+    const next = new URLSearchParams(searchParams);
+    if (sortBy) next.set("sortBy", sortBy);
+    else next.delete("sortBy");
+    if (order) next.set("order", order);
+    else next.delete("order");
+    next.delete("page");
+    setSearchParams(next);
   }
 
-  const selectedSort = `${searchParams.get('sortBy') || ''}:${searchParams.get('order') || ''}`
+  const selectedSort = `${searchParams.get("sortBy") || ""}:${searchParams.get("order") || ""}`;
 
-  return <div className="listing-layout">
-    <aside className="filters">
-      <h2>Filters</h2>
-      {!slug && <>
-        <h3>Category</h3>
-        {categories.data?.categories.filter(category => !category.parent_id).map(category => <label className="filter-option" key={category.id}>
-          <input type="radio" name="category-filter" checked={searchParams.get('category') === category.id} onChange={() => changeFilter('category', category.id)} />
-          {category.name}
-        </label>)}
-      </>}
-      <h3>Price</h3>
-      <form onSubmit={event => {
-        event.preventDefault()
-        const form = new FormData(event.currentTarget)
-        const next = new URLSearchParams(searchParams)
-        const min = String(form.get('min') || '')
-        const max = String(form.get('max') || '')
-        if (min) next.set('minPrice', String(Math.round(Number(min) * 100)))
-        else next.delete('minPrice')
-        if (max) next.set('maxPrice', String(Math.round(Number(max) * 100)))
-        else next.delete('maxPrice')
-        next.delete('page')
-        setSearchParams(next)
-      }}>
-        <label>Minimum (₹)<input name="min" type="number" min="0" step="0.01" defaultValue={searchParams.get('minPrice') ? (Number(searchParams.get('minPrice')) / 100).toFixed(2) : ''} /></label>
-        <label>Maximum (₹)<input name="max" type="number" min="0" step="0.01" defaultValue={searchParams.get('maxPrice') ? (Number(searchParams.get('maxPrice')) / 100).toFixed(2) : ''} /></label>
-        <button className="button neutral small">Apply</button>
-      </form>
-      {(searchParams.has('category') || searchParams.has('minPrice') || searchParams.has('maxPrice')) && <button className="text-link filter-clear" onClick={() => setSearchParams(q ? { q } : {})}>Clear filters</button>}
-    </aside>
+  return (
+    <div className="listing-layout">
+      <aside className="filters">
+        <h2>Filters</h2>
+        {!slug && (
+          <>
+            <h3>Category</h3>
+            {categories.data?.categories
+              .filter((category) => !category.parent_id)
+              .map((category) => (
+                <label className="filter-option" key={category.id}>
+                  <input
+                    type="radio"
+                    name="category-filter"
+                    checked={searchParams.get("category") === category.id}
+                    onChange={() => changeFilter("category", category.id)}
+                  />
+                  {category.name}
+                </label>
+              ))}
+          </>
+        )}
+        <h3>Price</h3>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            const next = new URLSearchParams(searchParams);
+            const min = String(form.get("min") || "");
+            const max = String(form.get("max") || "");
+            if (min)
+              next.set("minPrice", String(Math.round(Number(min) * 100)));
+            else next.delete("minPrice");
+            if (max)
+              next.set("maxPrice", String(Math.round(Number(max) * 100)));
+            else next.delete("maxPrice");
+            next.delete("page");
+            setSearchParams(next);
+          }}
+        >
+          <label>
+            Minimum (₹)
+            <input
+              name="min"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={
+                searchParams.get("minPrice")
+                  ? (Number(searchParams.get("minPrice")) / 100).toFixed(2)
+                  : ""
+              }
+            />
+          </label>
+          <label>
+            Maximum (₹)
+            <input
+              name="max"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={
+                searchParams.get("maxPrice")
+                  ? (Number(searchParams.get("maxPrice")) / 100).toFixed(2)
+                  : ""
+              }
+            />
+          </label>
+          <button className="button neutral small">Apply</button>
+        </form>
+        {(searchParams.has("category") ||
+          searchParams.has("minPrice") ||
+          searchParams.has("maxPrice")) && (
+          <button
+            className="text-link filter-clear"
+            onClick={() => setSearchParams(q ? { q } : {})}
+          >
+            Clear filters
+          </button>
+        )}
+      </aside>
 
-    <section className="results">
-      <div className="results-heading">
-        <h1>{q ? `Results for “${q}”` : 'Shop products'}</h1>
-        <label>Sort by <select value={selectedSort} onChange={event => changeSort(event.target.value)}>
-          {sortOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select></label>
-      </div>
-      {results.data && <p className="muted result-count">{results.data.total.toLocaleString('en-IN')} results</p>}
-      <ProductGrid query={results} emptyMessage={q ? `No results for “${q}”` : 'No products found.'} />
-      {results.data && results.data.totalPages > 1 && <Pagination page={Number(searchParams.get('page') || '1')} totalPages={results.data.totalPages} onChange={page => {
-        const next = new URLSearchParams(searchParams)
-        next.set('page', String(page))
-        setSearchParams(next)
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      }} />}
-    </section>
-  </div>
+      <section className="results">
+        <div className="results-heading">
+          <h1>{q ? `Results for “${q}”` : "Shop products"}</h1>
+          <label>
+            Sort by{" "}
+            <select
+              value={selectedSort}
+              onChange={(event) => changeSort(event.target.value)}
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {results.data && (
+          <p className="muted result-count">
+            {results.data.total.toLocaleString("en-IN")} results
+          </p>
+        )}
+        <ProductGrid
+          query={results}
+          emptyMessage={q ? `No results for “${q}”` : "No products found."}
+        />
+        {results.data && results.data.totalPages > 1 && (
+          <Pagination
+            page={Number(searchParams.get("page") || "1")}
+            totalPages={results.data.totalPages}
+            onChange={(page) => {
+              const next = new URLSearchParams(searchParams);
+              next.set("page", String(page));
+              setSearchParams(next);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
+        )}
+      </section>
+    </div>
+  );
 }
 
 export function Component() {
-  return <SearchPage />
+  return <SearchPage />;
 }
 
-function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (page: number) => void }) {
-  return <nav className="pagination" aria-label="Product pages">
-    <button className="button neutral small" disabled={page <= 1} onClick={() => onChange(page - 1)}>Previous</button>
-    <span>Page {page} of {totalPages}</span>
-    <button className="button neutral small" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>Next</button>
-  </nav>
+function Pagination({
+  page,
+  totalPages,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  return (
+    <nav className="pagination" aria-label="Product pages">
+      <button
+        className="button neutral small"
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+      >
+        Previous
+      </button>
+      <span>
+        Page {page} of {totalPages}
+      </span>
+      <button
+        className="button neutral small"
+        disabled={page >= totalPages}
+        onClick={() => onChange(page + 1)}
+      >
+        Next
+      </button>
+    </nav>
+  );
 }

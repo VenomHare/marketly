@@ -9,19 +9,19 @@ nav_order: 7
 
 Base prefix: `/api/v1`. Guest cart routes use a `session_id`. Customer-owned cart routes use the authenticated customer's cart, created when a guest cart is merged at sign-in.
 
-| Method and path | Inputs |
-| --- | --- |
-| `GET /cart` | Optional `session_id` query parameter (1–200 characters) |
-| `POST /cart/items` | JSON body: `session_id`, `product_id`, `quantity` |
-| `PATCH /cart/items/:itemId` | Path `itemId`; JSON body: `session_id`, `quantity` |
-| `DELETE /cart/items/:itemId` | Path `itemId`; required `session_id` query parameter |
-| `DELETE /cart` | Required `session_id` query parameter |
-| `GET /cart/mine` | Customer bearer token |
-| `POST /cart/mine/items` | Customer bearer token; JSON body: `product_id`, `quantity` |
-| `PATCH /cart/mine/items/:itemId` | Customer bearer token; path `itemId`; JSON body: `quantity` |
-| `DELETE /cart/mine/items/:itemId` | Customer bearer token; path `itemId` |
-| `POST /cart/merge` | Customer bearer token; JSON body: `session_id` |
-| `POST /cart/validate` | JSON body: `session_id` |
+| Method and path                   | Inputs                                                      |
+| --------------------------------- | ----------------------------------------------------------- |
+| `GET /cart`                       | Optional `session_id` query parameter (1–200 characters)    |
+| `POST /cart/items`                | JSON body: `session_id`, `product_id`, `quantity`           |
+| `PATCH /cart/items/:itemId`       | Path `itemId`; JSON body: `session_id`, `quantity`          |
+| `DELETE /cart/items/:itemId`      | Path `itemId`; required `session_id` query parameter        |
+| `DELETE /cart`                    | Required `session_id` query parameter                       |
+| `GET /cart/mine`                  | Customer bearer token                                       |
+| `POST /cart/mine/items`           | Customer bearer token; JSON body: `product_id`, `quantity`  |
+| `PATCH /cart/mine/items/:itemId`  | Customer bearer token; path `itemId`; JSON body: `quantity` |
+| `DELETE /cart/mine/items/:itemId` | Customer bearer token; path `itemId`                        |
+| `POST /cart/merge`                | Customer bearer token; JSON body: `session_id`              |
+| `POST /cart/validate`             | JSON body: `session_id`                                     |
 
 `GET /cart` returns `{ "cart": null, "items": [] }` when no session is supplied, no matching cart exists, or the matching cart has expired. For an active cart it returns the cart and its items ordered by `added_at`. Repeated `session_id` parameters, blank or oversized values, and unsupported query parameters return `400`.
 
@@ -40,4 +40,3 @@ Base prefix: `/api/v1`. Guest cart routes use a `session_id`. Customer-owned car
 `POST /cart/merge` requires a customer bearer token and a guest `session_id` between 32 and 200 characters, with no surrounding whitespace. It merges into that authenticated customer's active cart, never a cart ID supplied by the caller. Existing quantities are combined up to current stock. Unavailable products and quantities that cannot fit are reported in `skipped` or `partial`; those source lines remain in the guest cart for review. The source and destination updates commit in one MongoDB transaction, so a failed merge cannot duplicate transferred quantities on retry. MongoDB must support transactions. Missing or expired guest carts return `404`; unauthenticated requests return `401`, and non-customer roles return `403`.
 
 `POST /cart/validate` accepts the same length-limited guest `session_id` and returns current product prices, stock, per-line availability, and a subtotal without changing the cart. Missing or expired carts return `404`. Empty carts are valid with a zero subtotal. Invalid quantities, missing or inactive products, and insufficient stock mark the result invalid with a reason on the affected line. For guest cart operations, use a cryptographically random session ID of at least 32 characters; it acts as a bearer credential.
-

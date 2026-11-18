@@ -26,16 +26,23 @@ const VendorSettlementSchema = new Schema<IVendorSettlement>(
     refund_paise: { type: Number, required: true },
     commission_reversed_paise: { type: Number, default: 0 },
     net_paise: { type: Number, required: true },
-    status: { type: String, enum: ["pending", "processing", "paid", "failed"], default: "pending" },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "paid", "failed"],
+      default: "pending",
+    },
     provider_transfer_id: { type: String },
     payout_balance_offset_paise: { type: Number, default: 0 },
     simulated_payout: { type: Boolean, default: false },
     created_at: { type: Date, default: Date.now },
     settled_at: { type: Date },
   },
-  { timestamps: { createdAt: "created_at" } }
+  { timestamps: { createdAt: "created_at" } },
 );
 
 VendorSettlementSchema.index({ vendor_order_id: 1 }, { unique: true });
 
-export default mongoose.model<IVendorSettlement>("VendorSettlement", VendorSettlementSchema);
+export default mongoose.model<IVendorSettlement>(
+  "VendorSettlement",
+  VendorSettlementSchema,
+);

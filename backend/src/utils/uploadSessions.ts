@@ -17,31 +17,41 @@ export interface UploadSession {
 
 const sessionKey = (id: string) => `upload-session:${id}`;
 
-export async function createUploadSession(session: UploadSession): Promise<void> {
+export async function createUploadSession(
+  session: UploadSession,
+): Promise<void> {
   const redis = await getRedisClient();
   const value = JSON.stringify(session);
   const remainingTtl = Math.min(
     UPLOAD_SESSION_TTL_SECONDS,
-    Math.ceil((Date.parse(session.expires_at) - Date.now()) / 1000)
+    Math.ceil((Date.parse(session.expires_at) - Date.now()) / 1000),
   );
   if (remainingTtl <= 0) throw new Error("Upload session has expired");
   await redis.set(sessionKey(session.id), value, { EX: remainingTtl });
 }
 
-export async function getUploadSession(id: string): Promise<UploadSession | null> {
+export async function getUploadSession(
+  id: string,
+): Promise<UploadSession | null> {
   const redis = await getRedisClient();
   const value = await redis.get(sessionKey(id));
-  return value ? JSON.parse(value) as UploadSession : null;
+  return value ? (JSON.parse(value) as UploadSession) : null;
 }
 
-export async function updateUploadSession(session: UploadSession): Promise<void> {
+export async function updateUploadSession(
+  session: UploadSession,
+): Promise<void> {
   const redis = await getRedisClient();
-  const remainingTtl = Math.ceil((Date.parse(session.expires_at) - Date.now()) / 1000);
+  const remainingTtl = Math.ceil(
+    (Date.parse(session.expires_at) - Date.now()) / 1000,
+  );
   if (remainingTtl <= 0) {
     await redis.del(sessionKey(session.id));
     return;
   }
-  await redis.set(sessionKey(session.id), JSON.stringify(session), { EX: remainingTtl });
+  await redis.set(sessionKey(session.id), JSON.stringify(session), {
+    EX: remainingTtl,
+  });
 }
 
 export async function deleteUploadSession(id: string): Promise<void> {

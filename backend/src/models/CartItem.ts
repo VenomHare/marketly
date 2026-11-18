@@ -15,7 +15,7 @@ const CartItemSchema = new Schema<ICartItem>(
     quantity: { type: Number, required: true },
     added_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "added_at" } }
+  { timestamps: { createdAt: "added_at" } },
 );
 
 export default mongoose.model<ICartItem>("CartItem", CartItemSchema);

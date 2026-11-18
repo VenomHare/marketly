@@ -15,11 +15,18 @@ const ReturnRequestSchema = new Schema<IReturnRequest>(
     order_id: { type: String, required: true, unique: true },
     user_id: { type: String, required: true },
     reason: { type: String, required: true, trim: true, maxlength: 1000 },
-    status: { type: String, enum: ["requested", "approved", "rejected", "received", "refunded"], default: "requested" },
+    status: {
+      type: String,
+      enum: ["requested", "approved", "rejected", "received", "refunded"],
+      default: "requested",
+    },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } },
 );
 
-export default mongoose.model<IReturnRequest>("ReturnRequest", ReturnRequestSchema);
+export default mongoose.model<IReturnRequest>(
+  "ReturnRequest",
+  ReturnRequestSchema,
+);

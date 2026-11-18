@@ -1,7 +1,13 @@
-import { AppRouter } from './app/router'
-import { AuthBootstrap } from './app/AuthBootstrap'
-import { AppProviders } from './app/providers'
+import { AppRouter } from "./app/router";
+import { AuthBootstrap } from "./app/AuthBootstrap";
+import { AppProviders } from "./app/providers";
 
 export default function App() {
-  return <AppProviders><AuthBootstrap><AppRouter /></AuthBootstrap></AppProviders>
+  return (
+    <AppProviders>
+      <AuthBootstrap>
+        <AppRouter />
+      </AuthBootstrap>
+    </AppProviders>
+  );
 }

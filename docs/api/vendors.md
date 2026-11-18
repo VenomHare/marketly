@@ -56,4 +56,3 @@ Vendor auth and active account. Same pagination query as vendor orders. `200` `{
 A pending settlement is created transactionally when the vendor order moves to `delivered`. Gross is the sum of that vendor's discounted order item totals. Commission is `floor(gross_paise * commission_rate_bps / 10000)` using the vendor rate at delivery; net is gross minus commission. The settlement is unique per vendor order. Pending settlements count toward the vendor's pending payout, but this application does not initiate vendor transfers.
 
 Vendor route tests cover ownership scoping, pagination, private field filtering, and exclusion of KYC document keys from responses.
-

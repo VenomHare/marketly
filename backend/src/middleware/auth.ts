@@ -20,7 +20,7 @@ export interface AuthRequest extends Request {
 export const authenticate = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const authHeader = req.headers.authorization;
@@ -52,7 +52,7 @@ export const authenticate = async (
 export const requireAdmin = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({ message: "Admin access required" });
@@ -68,14 +68,16 @@ export const requireAdmin = async (
     }
     return next();
   } catch {
-    return res.status(500).json({ message: "Unable to authorize administrator" });
+    return res
+      .status(500)
+      .json({ message: "Unable to authorize administrator" });
   }
 };
 
 export const requireVendor = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
@@ -104,7 +106,7 @@ export const requireVendor = async (
 export const requireVerifiedVendor = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (!req.user) {
     return res.status(401).json({ message: "Authentication required" });
@@ -120,7 +122,9 @@ export const requireVerifiedVendor = async (
   }
 
   if (vendor.kyc_status !== "verified") {
-    return res.status(403).json({ message: "Vendor must be verified to access this resource" });
+    return res
+      .status(403)
+      .json({ message: "Vendor must be verified to access this resource" });
   }
 
   req.vendor = {

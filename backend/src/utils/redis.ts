@@ -8,11 +8,18 @@ export async function getRedisClient() {
     const url = process.env.REDIS_URL;
     if (!url) throw new Error("REDIS_URL must be configured");
     client = createClient({ url });
-    client.on("error", (error) => console.error("Redis connection error:", error));
+    client.on("error", (error) =>
+      console.error("Redis connection error:", error),
+    );
   }
 
   if (!client.isOpen) {
-    connectPromise ??= client.connect().then(() => undefined).finally(() => { connectPromise = undefined; });
+    connectPromise ??= client
+      .connect()
+      .then(() => undefined)
+      .finally(() => {
+        connectPromise = undefined;
+      });
     await connectPromise;
   }
   return client;
