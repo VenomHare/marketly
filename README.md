@@ -15,6 +15,10 @@ Marketly is a multi-vendor marketplace demo. Customers can browse and search pro
 - Vendor fulfillment states, shipment details, commission accounting, and settlement records
 - Reviews, PDF invoices/statements, admin tools, and analytics
 
+## Screenshots and demo
+
+Browse the [screenshots and demo gallery](screenshots/README.md) for customer, vendor, and admin flows.
+
 See [features.md](features.md) for feature-to-code mapping and [SPEC.md](SPEC.md) for the schema and API design notes.
 
 ## Architecture
