@@ -72,6 +72,8 @@ export function VendorDashboardPage() {
     me.data.status === "active" &&
     Boolean(me.data.vendor);
   const [settlementPage, setSettlementPage] = useState(1);
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
+  const [readyInvoice, setReadyInvoice] = useState<{ url: string; filename: string } | null>(null);
   const kyc = useQuery({
     queryKey: ["vendor", "kyc", me.data?.id],
     queryFn: async () =>
@@ -101,16 +103,28 @@ export function VendorDashboardPage() {
   });
 
   async function downloadSettlement(settlement: VendorSettlement) {
-    const { data } = await client.get<Blob>(
-      `/vendors/me/settlements/${settlement.id}/invoice.pdf`,
-      { responseType: "blob" },
-    );
-    const url = URL.createObjectURL(data);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `marketly-settlement-${settlement.id.slice(-8)}.pdf`;
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setInvoiceDownloading(true);
+    setReadyInvoice(null);
+    try {
+      const { data } = await client.get<Blob>(
+        `/vendors/me/settlements/${settlement.id}/invoice.pdf`,
+        { responseType: "blob" },
+      );
+      const invoice = {
+        url: URL.createObjectURL(data),
+        filename: `marketly-settlement-${settlement.id.slice(-8)}.pdf`,
+      };
+      setReadyInvoice(invoice);
+      const anchor = document.createElement("a");
+      anchor.href = invoice.url;
+      anchor.download = invoice.filename;
+      anchor.click();
+    } catch {
+      setInvoiceDownloading(false);
+      setReadyInvoice(null);
+      return;
+    }
+    setInvoiceDownloading(false);
   }
 
   if (me.isPending) return <DashboardLoading />;
@@ -266,9 +280,10 @@ export function VendorDashboardPage() {
                       <button
                         className="button neutral small"
                         type="button"
+                        disabled={invoiceDownloading}
                         onClick={() => void downloadSettlement(settlement)}
                       >
-                        <Download size={14} /> Invoice PDF
+                        <Download size={14} /> {invoiceDownloading ? "Preparing…" : "Invoice PDF"}
                       </button>
                     </article>
                   ))}
@@ -313,6 +328,19 @@ export function VendorDashboardPage() {
             Sales and payout totals are shown in Indian rupees.
           </div>
         </>
+      )}
+      {(invoiceDownloading || readyInvoice) && (
+        <div className="account-invoice-backdrop" role="presentation">
+          <section className="account-invoice-popup" role="dialog" aria-modal="true" aria-labelledby="vendor-invoice-download-title">
+            <div className="account-invoice-icon"><Download size={20} /></div>
+            <h2 id="vendor-invoice-download-title">{readyInvoice ? "Invoice ready" : "Downloading invoice"}</h2>
+            <p>{readyInvoice ? "Your settlement invoice file is ready." : "Preparing your invoice. The download will start as soon as the file is ready."}</p>
+            {readyInvoice && <p className="account-invoice-fallback">If the download didn’t start automatically, <a href={readyInvoice.url} download={readyInvoice.filename}>click here</a>.</p>}
+            {readyInvoice ? (
+              <button className="button primary" type="button" onClick={() => { URL.revokeObjectURL(readyInvoice.url); setReadyInvoice(null); }}>Done</button>
+            ) : <span className="account-invoice-progress" aria-label="Loading" />}
+          </section>
+        </div>
       )}
     </section>
   );

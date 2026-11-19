@@ -1,12 +1,12 @@
 ---
 layout: default
 title: API guide
-nav_order: 2
+nav_order: 3
 ---
 
 # Marketly API guide
 
-Use this guide to find an endpoint, prepare its request, and understand the response. The API base path is `/api/v1`.
+Use this guide to find an endpoint, prepare its request, and understand the response. The API base path is `/api/v1`. For local setup and architecture, see the [root README](../README.md) and [architecture guide](architecture.md).
 
 ## Find an endpoint
 

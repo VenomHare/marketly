@@ -39,6 +39,7 @@ import {
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const DEMO_PASSWORD = "MarketlyDemo!2026";
+const rupeesToPaise = (rupees: number) => Math.round(rupees * 100);
 const placeholderDirectory = resolve(__dirname, "placeholder");
 const placeholderImageNames = ["1.webp", "2.webp", "3.webp"] as const;
 const categories = [
@@ -54,6 +55,7 @@ const categories = [
   ["Automotive", "automotive"],
 ] as const;
 
+// Keep demo prices readable in rupees here; convert to paise when seeding Product.price.
 const catalog: Array<[string, string, number]> = [
   ["Wireless Earbuds", "Compact Bluetooth earbuds with charging case", 4999],
   ["USB-C Hub", "Seven-port aluminum USB-C hub", 3299],
@@ -228,13 +230,13 @@ async function main() {
     categories.map(([name, slug]) => ({ name, slug })),
   );
   const products = await Product.insertMany(
-    catalog.map(([name, description, price], i) => ({
+    catalog.map(([name, description, priceRupees], i) => ({
       vendor_id: vendorDocs[i % vendorDocs.length]!.id,
       category_id: categoryDocs[Math.floor(i / 5)]!.id,
       name,
       description,
       sku: `MK-${String(i + 1).padStart(4, "0")}`,
-      price,
+      price: rupeesToPaise(priceRupees),
       stock: 20 + (i % 30),
       status: "active" as const,
     })),
@@ -297,7 +299,7 @@ async function main() {
     const vendor = vendorDocs[i % vendorDocs.length]!;
     const refunded = i === 0;
     const unsettled = i === 1 || i === 2;
-    const price = product.price * 100;
+    const price = product.price;
     const discount = i === 1 ? Math.min(10000, Math.round(price * 0.1)) : 0;
     const total = price - discount;
     const commission = Math.floor((total * vendor.commission_rate_bps) / 10000);

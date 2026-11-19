@@ -610,7 +610,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
             status: "pending",
           },
         ],
-        { session },
+        { session, ordered: true },
       );
       if (!order) throw new Error("Failed to create order");
 
@@ -655,7 +655,10 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
           line_total_paise: grossPaise - allocatedDiscount,
         };
       });
-      const createdItems = await OrderItem.create(orderItems, { session });
+      const createdItems = await OrderItem.create(orderItems, {
+        session,
+        ordered: true,
+      });
       await InventoryMovement.create(
         createdItems.map((item) => ({
           product_id: item.product_id,
@@ -663,7 +666,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
           quantity_change: -item.quantity,
           reason: "purchase" as const,
         })),
-        { session },
+        { session, ordered: true },
       );
       if (coupon) {
         await CouponRedemption.create(
@@ -675,7 +678,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
               discount_paise: discountPaise,
             },
           ],
-          { session },
+          { session, ordered: true },
         );
       }
       const [payment] = await Payment.create(
@@ -689,7 +692,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
             idempotency_key: idempotencyKey,
           },
         ],
-        { session },
+        { session, ordered: true },
       );
       result = {
         status: 201,

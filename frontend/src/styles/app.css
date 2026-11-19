@@ -4217,7 +4217,7 @@ main {
   gap: 9px;
   margin-bottom: 19px;
   color: #9aa5b5;
-  font-size: 11px;
+  font-size: 12px;
 }
 .account-breadcrumb a {
   color: #65748a;
@@ -4240,7 +4240,7 @@ main {
 }
 .account-eyebrow {
   color: #78879c;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
 }
@@ -4254,7 +4254,7 @@ main {
 .account-heading p {
   margin: 0;
   color: #76849a;
-  font-size: 12px;
+  font-size: 14px;
 }
 .account-layout {
   display: grid;
@@ -4296,18 +4296,18 @@ main {
 }
 .account-person strong {
   color: #263650;
-  font-size: 11px;
+  font-size: 13px;
 }
 .account-person small {
   margin-top: 3px;
   color: #8793a4;
-  font-size: 9px;
+  font-size: 11px;
 }
 .account-rail-label {
   display: block;
   margin: 17px 7px 7px;
   color: #a1acba;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
 }
@@ -4320,7 +4320,7 @@ main {
   padding: 0 9px;
   border-radius: 8px;
   color: #5d6c81;
-  font-size: 11px;
+  font-size: 13px;
 }
 .account-rail > a:hover,
 .account-rail > a.active {
@@ -4331,7 +4331,7 @@ main {
 .account-rail > a span {
   margin-left: auto;
   color: #8292aa;
-  font-size: 10px;
+  font-size: 11px;
 }
 .account-help {
   display: grid;
@@ -4348,10 +4348,10 @@ main {
 }
 .account-help strong {
   color: #35445c;
-  font-size: 10px;
+  font-size: 12px;
 }
 .account-help span {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.5;
 }
 .account-help a {
@@ -4359,7 +4359,7 @@ main {
   align-items: center;
   gap: 4px;
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 .account-content {
@@ -4377,7 +4377,7 @@ main {
 .account-section-heading h2 {
   margin: 4px 0 0;
   color: #263650;
-  font-size: 16px;
+  font-size: 21px;
   font-weight: 600;
 }
 .account-section-heading > a {
@@ -4385,7 +4385,7 @@ main {
   align-items: center;
   gap: 5px;
   padding-bottom: 2px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
 }
 .account-orders {
@@ -4435,13 +4435,13 @@ main {
 }
 .account-order-meta small {
   color: #9aa5b3;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.07em;
 }
 .account-order-meta b {
   margin-left: 6px;
   color: #4a5870;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0;
 }
@@ -4455,7 +4455,7 @@ main {
   border-radius: 99px;
   color: #68788f;
   background: #f0f3f7;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: capitalize;
 }
@@ -4485,7 +4485,7 @@ main {
 }
 .account-order-total {
   color: #263650;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   text-align: right;
 }
@@ -4493,7 +4493,7 @@ main {
   display: block;
   margin-top: 4px;
   color: #909cad;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 400;
 }
 .account-order-chevron {
@@ -4530,7 +4530,7 @@ main {
   gap: 6px;
   margin: 0 0 12px;
   color: #4e607b;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 .account-line-item {
@@ -4539,7 +4539,7 @@ main {
   gap: 12px;
   padding: 9px 0;
   border-bottom: 1px solid #eef1f5;
-  font-size: 10px;
+  font-size: 13px;
 }
 .account-line-item > span {
   color: #394962;
@@ -4549,7 +4549,7 @@ main {
   display: block;
   margin-top: 4px;
   color: #909cad;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 400;
 }
 .account-line-item strong {
@@ -4591,12 +4591,12 @@ main {
   justify-self: start;
   margin-left: 62px;
   color: #245ae8;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
 }
 .account-detail-grid > div > p {
   color: #6c7a8f;
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .account-muted {
@@ -4615,7 +4615,7 @@ main {
   align-items: center;
   gap: 5px;
   color: #54709a;
-  font-size: 9px;
+  font-size: 12px;
   text-transform: capitalize;
 }
 .account-order-footer {
@@ -4632,7 +4632,7 @@ main {
   display: grid;
   gap: 6px;
   color: #8491a3;
-  font-size: 9px;
+  font-size: 12px;
 }
 .account-totals span,
 .account-totals strong {
@@ -4648,7 +4648,7 @@ main {
   padding-top: 6px;
   border-top: 1px solid #ebeff5;
   color: #374860;
-  font-size: 10px;
+  font-size: 14px;
 }
 .account-totals strong b {
   font-weight: 700;
@@ -4663,7 +4663,7 @@ main {
   min-height: 31px;
   padding: 5px 11px;
   border-radius: 7px;
-  font-size: 9px;
+  font-size: 12px;
 }
 .account-order-actions form {
   display: flex;
@@ -4675,12 +4675,12 @@ main {
   padding: 7px 9px;
   border: 1px solid #dce4f0;
   border-radius: 7px;
-  font-size: 9px;
+  font-size: 12px;
 }
 .account-action-message {
   margin: 12px 0 0;
   color: #287253;
-  font-size: 10px;
+  font-size: 12px;
 }
 .account-action-message.error,
 .account-error {
@@ -4692,7 +4692,7 @@ main {
 .account-detail-loading,
 .account-empty {
   color: #8794a7;
-  font-size: 11px;
+  font-size: 14px;
 }
 .account-empty {
   min-height: 200px;
@@ -4710,13 +4710,13 @@ main {
 .account-empty h3 {
   margin: 4px 0 0;
   color: #31425d;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 600;
 }
 .account-empty p {
   margin: 0 0 6px;
   color: #8693a6;
-  font-size: 10px;
+  font-size: 13px;
 }
 .account-empty-icon {
   display: grid;
@@ -4728,7 +4728,7 @@ main {
   background: #edf3ff;
 }
 .account-empty .button {
-  font-size: 10px;
+  font-size: 13px;
 }
 .account-error {
   color: #9e5953;
@@ -4749,7 +4749,7 @@ main {
   gap: 18px;
   margin: 17px 0;
   color: #78869a;
-  font-size: 10px;
+  font-size: 12px;
 }
 .account-pagination button {
   display: inline-flex;
@@ -4791,11 +4791,11 @@ main {
 }
 .account-shopping-nudge strong {
   color: #43536d;
-  font-size: 9px;
+  font-size: 12px;
 }
 .account-shopping-nudge small {
   color: #8a96a7;
-  font-size: 8px;
+  font-size: 11px;
 }
 .account-shopping-nudge > a {
   display: inline-flex;
@@ -4803,14 +4803,14 @@ main {
   gap: 4px;
   margin-left: auto;
   white-space: nowrap;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
 }
 .account-loading {
   max-width: 1180px;
   margin: 40px auto;
   color: #75839a;
-  font-size: 12px;
+  font-size: 14px;
 }
 .account-spinner {
   width: 19px;
@@ -4910,14 +4910,14 @@ main {
     height: 29px;
   }
   .account-order-meta small {
-    font-size: 7px;
+    font-size: 9px;
   }
   .account-order-meta b {
     margin-left: 3px;
-    font-size: 8px;
+    font-size: 10px;
   }
   .account-order-total {
-    font-size: 10px;
+    font-size: 12px;
   }
   .account-order-detail {
     padding: 14px 12px;
@@ -7042,3 +7042,47 @@ main {
     display: grid;
   }
 }
+.account-invoice-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(11 18 32 / 55%);
+}
+.account-invoice-popup {
+  width: min(100%, 420px);
+  padding: 28px;
+  border: 1px solid #dce4f1;
+  border-radius: 18px;
+  background: white;
+  box-shadow: 0 24px 70px rgb(11 18 32 / 24%);
+  text-align: center;
+}
+.account-invoice-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  place-items: center;
+  border-radius: 14px;
+  color: #2563eb;
+  background: #eff5ff;
+}
+.account-invoice-popup h2 { margin: 0; color: #0b1220; font-size: 20px; }
+.account-invoice-popup > p { margin: 10px 0 0; color: #56657a; font-size: 14px; line-height: 1.55; }
+.account-invoice-popup .account-invoice-fallback { margin-top: 8px; }
+.account-invoice-fallback a { color: #2563eb; font-weight: 700; }
+.account-invoice-popup .button { margin-top: 20px; }
+.account-invoice-progress {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  margin-top: 20px;
+  border: 3px solid #dce4f1;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: account-invoice-spin 0.8s linear infinite;
+}
+@keyframes account-invoice-spin { to { transform: rotate(360deg); } }

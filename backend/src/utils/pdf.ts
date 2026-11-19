@@ -63,14 +63,14 @@ export async function createInvoicePdf(invoice: CustomerInvoice) {
   </tr>`,
     )
     .join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Marketly Invoice</title><style>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Customer Invoice</title><style>
     @page { size: A4; margin: 18mm 16mm 20mm; }
     * { box-sizing: border-box; }
     body { margin: 0; color: #111827; font: 12px/1.55 Arial, Helvetica, sans-serif; }
-    .topline { height: 7px; margin: -18mm -16mm 24px; background: #2563EB; }
+    .topline { height: 7px; margin: -18mm -16mm 64px; background: #2563EB; }
     header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid #DCE4F1; }
     .brand { color: #0B1220; font-size: 25px; font-weight: 800; letter-spacing: -1.5px; }
-    .brand span { color: #2563EB; }
+    .brand-period { color: #2563EB; }
     .brand-note { margin-top: 3px; color: #56657A; font-size: 10px; }
     .invoice-title { color: #0B1220; font-size: 26px; font-weight: 700; text-align: right; letter-spacing: -.5px; }
     .invoice-number { margin-top: 3px; color: #56657A; text-align: right; font-size: 11px; }
@@ -97,8 +97,8 @@ export async function createInvoicePdf(invoice: CustomerInvoice) {
     .grand-total span:last-child { color: white; }
     footer { margin-top: 35px; padding-top: 13px; border-top: 1px solid #DCE4F1; color: #738097; font-size: 9px; text-align: center; }
   </style></head><body><div class="topline"></div>
-    <header><div><div class="brand">Marketly<span>.</span></div><div class="brand-note">Your marketplace, made simple.</div></div>
-      <div><div class="invoice-title">INVOICE</div><div class="invoice-number">${escapeHtml(invoice.invoiceNumber)}</div></div>
+    <header><div><div class="brand">Marketly<span class="brand-period">.</span></div><div class="brand-note">Your marketplace, made simple.</div></div>
+      <div><div class="invoice-title">Customer Invoice</div><div class="invoice-number">${escapeHtml(invoice.invoiceNumber)}</div></div>
     </header>
     <section class="meta"><div class="card"><div class="label">Billed to</div><div class="value">${escapeHtml(invoice.address.addressee_name || "Customer")}</div>${addressLines.map((line) => `<div class="muted">${escapeHtml(line)}</div>`).join("")}</div>
       <div class="card"><div class="label">Order details</div><div class="value">Order #${escapeHtml(invoice.orderId.slice(-8).toUpperCase())}</div><div class="muted">Invoice date: ${escapeHtml(invoiceDate(invoice.date))}</div><div class="muted">Order status: ${escapeHtml(invoice.status.replace(/_/g, " "))}</div></div>
@@ -173,10 +173,10 @@ export async function createSettlementInvoicePdf(invoice: SettlementInvoice) {
     @page { size: A4; margin: 18mm 16mm 20mm; }
     * { box-sizing: border-box; }
     body { margin: 0; color: #111827; font: 12px/1.55 Arial, Helvetica, sans-serif; }
-    .topline { height: 7px; margin: -18mm -16mm 24px; background: #2563EB; }
+    .topline { height: 7px; margin: -18mm -16mm 64px; background: #2563EB; }
     header { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid #DCE4F1; }
     .brand { color: #0B1220; font-size: 25px; font-weight: 800; letter-spacing: -1.5px; }
-    .brand span { color: #2563EB; }
+    .brand-period { color: #2563EB; }
     .brand-note { margin-top: 3px; color: #56657A; font-size: 10px; }
     .invoice-title { color: #0B1220; font-size: 26px; font-weight: 700; text-align: right; letter-spacing: -.5px; }
     .invoice-number { margin-top: 3px; color: #56657A; text-align: right; font-size: 11px; }
@@ -204,8 +204,8 @@ export async function createSettlementInvoicePdf(invoice: SettlementInvoice) {
     .note { margin-top: 22px; padding: 12px 14px; border-left: 3px solid #2563EB; background: #F5F8FE; }
     footer { margin-top: 35px; padding-top: 13px; border-top: 1px solid #DCE4F1; color: #738097; font-size: 9px; text-align: center; }
   </style></head><body><div class="topline"></div>
-    <header><div><div class="brand">Marketly<span>.</span></div><div class="brand-note">Your marketplace, made simple.</div></div>
-      <div><div class="invoice-title">SETTLEMENT</div><div class="invoice-number">${escapeHtml(invoice.invoiceNumber)}</div></div>
+    <header><div><div class="brand">Marketly<span class="brand-period">.</span></div><div class="brand-note">Your marketplace, made simple.</div></div>
+      <div><div class="invoice-title">Vendor Settlement Invoice</div><div class="invoice-number">${escapeHtml(invoice.invoiceNumber)}</div></div>
     </header>
     <section class="meta"><div class="card"><div class="label">Seller</div><div class="value">${escapeHtml(invoice.vendorName)}</div><div class="muted">Account ${escapeHtml(invoice.vendorId)}</div><div class="muted">${escapeHtml(invoice.businessAddress)}</div><div class="muted">${escapeHtml(invoice.bankDetails)}</div></div>
       <div class="card"><div class="label">Settlement details</div><div class="value">Settlement #${escapeHtml(invoice.settlementId.slice(-8).toUpperCase())}</div><div class="muted">Date: ${escapeHtml(invoiceDate(invoice.date))}</div><div class="muted">Status: ${escapeHtml(invoice.status.replace(/_/g, " "))}</div><div class="muted">Vendor order #${escapeHtml(invoice.vendorOrderId.slice(-8).toUpperCase())}</div><div class="muted">Marketplace order #${escapeHtml(invoice.orderId.slice(-8).toUpperCase())}</div></div></section>

@@ -96,11 +96,7 @@ type Tracking = {
 async function downloadPdf(path: string, filename: string) {
   const { data } = await client.get<Blob>(path, { responseType: "blob" });
   const url = URL.createObjectURL(data);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return { url, filename };
 }
 
 const statusLabel = (status: string) => status.replaceAll("_", " ");
@@ -120,6 +116,8 @@ export function AccountPage() {
   const [openOrder, setOpenOrder] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const [readyInvoice, setReadyInvoice] = useState<{ url: string; filename: string } | null>(null);
+  const [invoiceDownloading, setInvoiceDownloading] = useState(false);
   const [confirmation, setConfirmation] = useState<{
     kind: "cancel" | "refund";
     orderId: string;
@@ -531,18 +529,27 @@ export function AccountPage() {
                                 <button
                                   className="button neutral"
                                   type="button"
-                                  onClick={() =>
+                                  disabled={invoiceDownloading}
+                                  onClick={() => {
+                                    setReadyInvoice(null);
+                                    setInvoiceDownloading(true);
                                     void downloadPdf(
                                       `/orders/${order.id}/invoice.pdf`,
                                       `marketly-order-${order.id.slice(-8)}.pdf`,
-                                    ).catch(() =>
+                                    ).then((invoice) => {
+                                      setReadyInvoice(invoice);
+                                      const anchor = document.createElement("a");
+                                      anchor.href = invoice.url;
+                                      anchor.download = invoice.filename;
+                                      anchor.click();
+                                    }).catch(() =>
                                       setActionMessage(
                                         "Could not download this invoice. Please try again.",
                                       ),
-                                    )
-                                  }
+                                    ).finally(() => setInvoiceDownloading(false));
+                                  }}
                                 >
-                                  <Download size={14} /> Download invoice
+                                  <Download size={14} /> {invoiceDownloading ? "Preparing invoice…" : "Download invoice"}
                                 </button>
                                 {((order.status === "pending" &&
                                   order.payment_status !== "paid") ||
@@ -654,6 +661,19 @@ export function AccountPage() {
           </div>
         </section>
       </div>
+      {(invoiceDownloading || readyInvoice) && (
+        <div className="account-invoice-backdrop" role="presentation">
+          <section className="account-invoice-popup" role="dialog" aria-modal="true" aria-labelledby="invoice-download-title">
+            <div className="account-invoice-icon"><Download size={20} /></div>
+            <h2 id="invoice-download-title">{readyInvoice ? "Invoice ready" : "Downloading invoice"}</h2>
+            <p>{readyInvoice ? "Your invoice file is ready." : "Preparing your invoice. The download will start as soon as the file is ready."}</p>
+            {readyInvoice && <p className="account-invoice-fallback">If the download didn’t start automatically, <a href={readyInvoice.url} download={readyInvoice.filename}>click here</a>.</p>}
+            {readyInvoice ? (
+              <button className="button primary" type="button" onClick={() => { URL.revokeObjectURL(readyInvoice.url); setReadyInvoice(null); }}>Done</button>
+            ) : <span className="account-invoice-progress" aria-label="Loading" />}
+          </section>
+        </div>
+      )}
       {confirmation && (
         <ConfirmActionModal
           title={
