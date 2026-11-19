@@ -9,7 +9,7 @@ The screenshots show the main customer, vendor, and admin flows. Images are comp
 | ![Marketplace home page](home-page.webp) | Marketplace home page and featured products. |
 | ![Explore products](explore-page.webp) | Product discovery and browsing. |
 | ![Search filters](search-filters.webp) | Search results with filtering controls. |
-| [Play the filter demo](filters-demo.mp4) | Short video showing product filters in use (muted). |
+| https://github.com/user-attachments/assets/41610ed4-2a91-401b-861f-2a3e7cc69bba | Short video showing product filters in use (muted). |
 | ![Product page](view-product.webp) | Product details and purchase options. |
 | ![Related products](related-prods.webp) | Related product recommendations. |
 | ![Vendor storefront](view-vendor-store.webp) | A seller's public storefront. |
