@@ -108,7 +108,7 @@ export function ImageUploadField({
   }
 
   async function upload(
-    selection: FileList | null,
+    selection: FileList | File[] | null,
     replacementConfirmed = false,
   ) {
     const files = Array.from(selection ?? []);

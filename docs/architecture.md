@@ -89,6 +89,8 @@ The object storage settings are needed for real image upload and the full seed f
 | `VITE_RAZORPAY_KEY_ID` | Public Razorpay key used by checkout |
 | `VITE_APP_NAME` | App display name |
 
+Vite embeds `VITE_` variables at build time. When using the frontend's direct Wrangler deployment, set `VITE_API_BASE_URL` in `frontend/.env.production` or in the environment that runs `npm run deploy`; Cloudflare dashboard build variables are not injected into locally built uploads.
+
 ## Local setup
 
 See the [root README](../README.md) for full prerequisites and commands. The short version is:

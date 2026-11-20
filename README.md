@@ -19,6 +19,8 @@ Marketly is a multi-vendor marketplace demo. Customers can browse and search pro
 
 Browse the [screenshots and demo gallery](screenshots/README.md) for customer, vendor, and admin flows.
 
+**Live application:** [Marketly](https://marketly-eat.pages.dev/)
+
 **Working demo video:** [Marketly demo](https://youtu.be/T1SsObzRO-Q)
 
 ## Submission materials
@@ -175,4 +177,6 @@ Some API routes are intentionally documented as placeholders; their endpoint pag
 
 ## Deployment status
 
-The frontend package includes a Cloudflare Pages deploy script. This repository does not currently include a backend deployment configuration or a public demo URL. Production deployment needs separately configured API hosting, database/cache/search services, object storage, Razorpay webhooks, and environment secrets.
+The frontend package includes a Cloudflare Pages deploy script. For a direct Wrangler upload (`npm run deploy` from `frontend/`), Vite builds the assets locally before uploading them. Set `VITE_API_BASE_URL` to the deployed backend URL in `frontend/.env.production` or in the shell running the deploy command. Cloudflare dashboard build variables do not affect a bundle built locally for direct upload. The checked-in `.env.example` and local `.env.local` use localhost for development; do not use that value for production. Rebuild and redeploy after changing frontend variables because Vite embeds them in the assets at build time.
+
+This repository does not currently include a backend deployment configuration or a public demo URL. Production deployment needs separately configured API hosting, database/cache/search services, object storage, Razorpay webhooks, and environment secrets.
