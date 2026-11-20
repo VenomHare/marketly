@@ -48,11 +48,14 @@ export function elasticsearchRequest(
   const url = new URL(`${base.replace(/\/$/, "")}/${path.replace(/^\//, "")}`);
   if (url.protocol !== "http:" && url.protocol !== "https:")
     throw new Error("Unsupported Elasticsearch URL protocol");
+  const apiKey = process.env.ELASTICSEARCH_API_KEY;
   const username = process.env.ELASTICSEARCH_USERNAME;
   const password = process.env.ELASTICSEARCH_PASSWORD;
-  const auth = username
-    ? `Basic ${Buffer.from(`${username}:${password || ""}`).toString("base64")}`
-    : undefined;
+  const auth = apiKey
+    ? `ApiKey ${apiKey}`
+    : username
+      ? `Basic ${Buffer.from(`${username}:${password || ""}`).toString("base64")}`
+      : undefined;
   const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
 
   return new Promise((resolve, reject) => {

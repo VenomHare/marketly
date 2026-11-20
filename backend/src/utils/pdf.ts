@@ -1,4 +1,7 @@
-import puppeteer from "puppeteer";
+const launchBrowser = async () => {
+  const { default: puppeteer } = await import("puppeteer");
+  return puppeteer.launch({ headless: true });
+};
 
 const escapeHtml = (value: unknown) =>
   String(value ?? "")
@@ -109,7 +112,7 @@ export async function createInvoicePdf(invoice: CustomerInvoice) {
     <footer>Thank you for shopping with Marketly.<br>This is a computer-generated invoice.</footer>
   </body></html>`;
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
@@ -216,7 +219,7 @@ export async function createSettlementInvoicePdf(invoice: SettlementInvoice) {
     <footer>Marketly seller settlement statement. Keep this document for your records.<br>This is a computer-generated document.</footer>
   </body></html>`;
 
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });

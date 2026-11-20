@@ -59,11 +59,13 @@ describe("Search routes", () => {
       ),
     );
     delete process.env.ELASTICSEARCH_URL;
+    delete process.env.ELASTICSEARCH_API_KEY;
     delete process.env.ELASTICSEARCH_USERNAME;
     delete process.env.ELASTICSEARCH_PASSWORD;
   });
 
   beforeEach(() => {
+    delete process.env.ELASTICSEARCH_API_KEY;
     status = 200;
     responseBody = {
       hits: {
@@ -75,6 +77,16 @@ describe("Search routes", () => {
   });
 
   describe("GET /search/products", () => {
+    it("uses the Elastic Cloud API key when configured", async () => {
+      const apiKey = "dGVzdC1pZDphcGkta2V5";
+      process.env.ELASTICSEARCH_API_KEY = apiKey;
+
+      const response = await fetch(`${baseUrl}/search/products`);
+
+      expect(response.status).toBe(200);
+      expect(lastRequest.authorization).toBe(`ApiKey ${apiKey}`);
+    });
+
     it("searches active products with the documented filters, sorting, pagination, and auth", async () => {
       const response = await fetch(
         `${baseUrl}/search/products?q=mechanical%20keyboard&category=electronics&minPrice=10&maxPrice=50&sortBy=price&order=asc&page=2&limit=5`,

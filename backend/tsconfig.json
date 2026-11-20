@@ -3,14 +3,14 @@
     // Environment setup & latest features
     "lib": ["ESNext"],
     "target": "ESNext",
-    "module": "commonjs",
+    "module": "Node16",
     "moduleDetection": "force",
     "jsx": "react-jsx",
     "allowJs": true,
     "ignoreDeprecations": "5.0",
 
     // Node.js mode
-    "moduleResolution": "node",
+    "moduleResolution": "Node16",
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,

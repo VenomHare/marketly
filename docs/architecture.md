@@ -70,7 +70,9 @@ Copy `backend/.env.example` to `backend/.env` and `frontend/.env.example` to `fr
 | `JWT_SECRET` | Signs authentication tokens; set a unique random value |
 | `BANK_DETAILS_ENCRYPTION_KEY` | Dedicated encryption key for vendor bank details; if blank, code falls back to `JWT_SECRET` |
 | `REDIS_URL` | Redis connection string |
-| `ELASTICSEARCH_URL`, `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD` | Elasticsearch connection |
+| `ELASTICSEARCH_URL` | Elasticsearch endpoint URL, including `https://` for Elastic Cloud |
+| `ELASTICSEARCH_API_KEY` | Encoded Elasticsearch REST API key; takes precedence over Basic auth |
+| `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD` | Optional Basic auth credentials, used for local Elasticsearch when no API key is set |
 | `OBJECT_STORAGE_PROVIDER`, `OBJECT_STORAGE_BUCKET` | Select and name the S3-compatible bucket |
 | `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | AWS S3 or compatible credentials |
 | `R2_ACCOUNT_ID` | Cloudflare R2 account identifier when using R2 |
