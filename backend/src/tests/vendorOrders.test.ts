@@ -79,15 +79,15 @@ describe("Vendor Order Routes", () => {
       commission_rate_bps: 0,
     });
     const orders = await Order.create(
-      Array.from({ length: 4 }, (_, index) => ({
+      [0, 1, 2, 3].map((index) => ({
         user_id: vendorUser.id,
         address_snapshot: { first_line: `Vendor order fixture ${index}` },
         subtotal_paise: 1000,
         discount_paise: 0,
         shipping_paise: 0,
         total_paise: 1000,
-        payment_status: "paid",
-        status: "placed",
+        payment_status: "paid" as const,
+        status: "placed" as const,
       })),
     );
     orderIds = orders.map((order) => order.id);

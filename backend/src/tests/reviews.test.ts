@@ -140,7 +140,7 @@ describe("Review Routes", () => {
       name: "Review Route Category",
       slug: CATEGORY_SLUG,
     });
-    [product, draftProduct] = await Product.create([
+    const createdProducts = await Product.create([
       {
         vendor_id: vendor.id,
         category_id: category.id,
@@ -162,6 +162,8 @@ describe("Review Routes", () => {
         status: "draft",
       },
     ]);
+    product = createdProducts[0]!;
+    draftProduct = createdProducts[1]!;
     await Review.create([
       {
         product_id: product.id,
@@ -287,7 +289,9 @@ describe("Review Routes", () => {
         `${BASE_URL}/products/${product.id}/reviews?limit=100`,
       );
       expect(maxLimit.status).toBe(200);
-      expect((await maxLimit.json()).reviews).toHaveLength(3);
+      expect(
+        (await maxLimit.json() as { reviews: unknown[] }).reviews,
+      ).toHaveLength(3);
       for (const query of [
         "?page=0",
         "?page=1.5",
@@ -961,7 +965,9 @@ describe("Review Routes", () => {
         { headers },
       );
       expect(maximumPageSize.status).toBe(200);
-      expect((await maximumPageSize.json()).reviews.length).toBe(
+      expect(
+        (await maximumPageSize.json() as { reviews: unknown[] }).reviews.length,
+      ).toBe(
         existingOwnReviewCount + 2,
       );
       const beyondLastPage = await fetch(

@@ -665,7 +665,22 @@ describe("Vendor Routes", () => {
         pages: 2,
       });
       expect(body.orders).toHaveLength(1);
-      expect(body.orders[0].items).toHaveLength(1);
+      expect(body.orders[0]).toMatchObject({
+        id: newest.id,
+        order_id: newest.order_id,
+        status: "placed",
+        items: [
+          {
+            product_id: "product-a",
+            product_name: "Vendor Item",
+            sku: "VENDOR-A",
+            unit_price_paise: 1200,
+            quantity: 2,
+            discount_paise: 100,
+            line_total_paise: 2300,
+          },
+        ],
+      });
 
       const invalidPage = await fetch(`${BASE_URL}/vendors/me/orders?page=0`, {
         headers: { Authorization: `Bearer ${kycVendorToken}` },

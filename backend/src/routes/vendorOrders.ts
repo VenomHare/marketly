@@ -165,7 +165,11 @@ vendorOrdersRouter.get(
   authenticate,
   requireVendor,
   async (req: AuthRequest, res) => {
-    if (!vendorIdSchema.safeParse(req.params.uuid).success) {
+    const vendorOrderId = req.params.uuid;
+    if (
+      typeof vendorOrderId !== "string" ||
+      !vendorIdSchema.safeParse(vendorOrderId).success
+    ) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
@@ -178,7 +182,7 @@ vendorOrdersRouter.get(
       }
 
       const vendorOrder = await findPaidVendorOrder(
-        req.params.uuid,
+        vendorOrderId,
         req.vendor!.id,
       );
       if (!vendorOrder)
@@ -245,7 +249,11 @@ vendorOrdersRouter.patch(
   authenticate,
   requireVendor,
   async (req: AuthRequest, res) => {
-    if (!vendorIdSchema.safeParse(req.params.uuid).success) {
+    const vendorOrderId = req.params.uuid;
+    if (
+      typeof vendorOrderId !== "string" ||
+      !vendorIdSchema.safeParse(vendorOrderId).success
+    ) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
     const validation = vendorOrderStatusSchema.safeParse(req.body);
@@ -261,7 +269,7 @@ vendorOrdersRouter.patch(
       }
 
       const vendorOrder = await findPaidVendorOrder(
-        req.params.uuid,
+        vendorOrderId,
         req.vendor!.id,
       );
       if (!vendorOrder)
@@ -374,7 +382,11 @@ vendorOrdersRouter.post(
   authenticate,
   requireVendor,
   async (req: AuthRequest, res) => {
-    if (!vendorIdSchema.safeParse(req.params.uuid).success) {
+    const vendorOrderId = req.params.uuid;
+    if (
+      typeof vendorOrderId !== "string" ||
+      !vendorIdSchema.safeParse(vendorOrderId).success
+    ) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
     const validation = shipmentCreateSchema.safeParse(req.body);
@@ -389,7 +401,7 @@ vendorOrdersRouter.post(
           .json({ message: "Active vendor account required" });
       }
       const vendorOrder = await findPaidVendorOrder(
-        req.params.uuid,
+        vendorOrderId,
         req.vendor!.id,
       );
       if (!vendorOrder)
@@ -430,7 +442,11 @@ vendorOrdersRouter.patch(
   authenticate,
   requireVendor,
   async (req: AuthRequest, res) => {
-    if (!vendorIdSchema.safeParse(req.params.uuid).success) {
+    const vendorOrderId = req.params.uuid;
+    if (
+      typeof vendorOrderId !== "string" ||
+      !vendorIdSchema.safeParse(vendorOrderId).success
+    ) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
     const validation = shipmentUpdateSchema.safeParse(req.body);
@@ -445,7 +461,7 @@ vendorOrdersRouter.patch(
           .json({ message: "Active vendor account required" });
       }
       const vendorOrder = await findPaidVendorOrder(
-        req.params.uuid,
+        vendorOrderId,
         req.vendor!.id,
       );
       if (!vendorOrder)
@@ -487,7 +503,11 @@ vendorOrdersRouter.get(
   authenticate,
   requireVendor,
   async (req: AuthRequest, res) => {
-    if (!vendorIdSchema.safeParse(req.params.uuid).success) {
+    const vendorOrderId = req.params.uuid;
+    if (
+      typeof vendorOrderId !== "string" ||
+      !vendorIdSchema.safeParse(vendorOrderId).success
+    ) {
       return res.status(400).json({ message: "Invalid parameters" });
     }
 
@@ -499,7 +519,7 @@ vendorOrdersRouter.get(
           .json({ message: "Active vendor account required" });
       }
       const vendorOrder = await findPaidVendorOrder(
-        req.params.uuid,
+        vendorOrderId,
         req.vendor!.id,
       );
       if (!vendorOrder)

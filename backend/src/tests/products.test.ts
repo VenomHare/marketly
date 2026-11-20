@@ -1052,7 +1052,7 @@ describe("Product Routes", () => {
         verifiedVendorToken,
       );
       expect(firstResponse.status).toBe(201);
-      const first = await firstResponse.json();
+      const first = (await firstResponse.json()) as Record<string, unknown>;
       expect(first).toMatchObject({
         product_id: product.id,
         object_key: firstKey,
@@ -1429,7 +1429,9 @@ describe("Product Routes", () => {
         `${BASE_URL}/products/${publicProducts[0]!.id}/related?limit=1`,
       );
       expect(limited.status).toBe(200);
-      expect((await limited.json()).products).toHaveLength(1);
+      expect(
+        (await limited.json() as { products: unknown[] }).products,
+      ).toHaveLength(1);
 
       for (const query of [
         "?limit=0",
