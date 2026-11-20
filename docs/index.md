@@ -11,5 +11,4 @@ Marketly is a multi-vendor marketplace demo. These pages document the architectu
 
 - [Architecture and local setup](architecture.md)
 - [Browse the API reference]({{ site.baseurl }}/api/)
-- [Feature-to-code map](../features.md)
 - [Explore the project specification](https://github.com/VenomHare/marketly/blob/main/SPEC.md)

@@ -67,6 +67,14 @@ const LIST_CUSTOMER_TOKEN = jwt.sign(
   },
   JWT_SECRET,
 );
+const LIST_OTHER_CUSTOMER_TOKEN = jwt.sign(
+  {
+    id: LIST_OTHER_CUSTOMER_ID,
+    email: "orders-list-other-customer@test.invalid",
+    role: "customer",
+  },
+  JWT_SECRET,
+);
 const LIST_EMPTY_CUSTOMER_TOKEN = jwt.sign(
   {
     id: new mongoose.Types.ObjectId().toString(),
@@ -353,6 +361,18 @@ describe("Order routes", () => {
         status: "completed",
         created_at: new Date("2026-01-01T00:00:00Z"),
         updated_at: new Date("2026-01-01T00:00:00Z"),
+      },
+      {
+        user_id: LIST_OTHER_CUSTOMER_ID,
+        address_snapshot: { first_line: "Unfulfilled Order Address" },
+        subtotal_paise: 1_500,
+        discount_paise: 0,
+        shipping_paise: 0,
+        total_paise: 1_500,
+        payment_status: "paid",
+        status: "completed",
+        created_at: new Date("2026-02-01T00:00:00Z"),
+        updated_at: new Date("2026-02-01T00:00:00Z"),
       },
     ]);
     listOrderIds = listOrders.map((order) => order.id);
@@ -709,7 +729,8 @@ describe("Order routes", () => {
           quantity_change: -2,
         }),
       ).toBe(1);
-      expect(await Cart.findById(checkoutCartId)).toBeNull();
+      expect(await Cart.findById(checkoutCartId)).not.toBeNull();
+      expect(await CartItem.countDocuments({ cart_id: checkoutCartId })).toBe(0);
 
       const replay = await createCheckout(validCheckout(), CUSTOMER_TOKEN);
       expect(replay.status).toBe(200);
@@ -1343,13 +1364,13 @@ describe("Order routes", () => {
 
     it("returns an empty fulfillment list when an order has no vendor tracking records", async () => {
       const response = await getOrderTracking(
-        listOrderIds[1]!,
+        listOrderIds[3]!,
         "",
-        LIST_CUSTOMER_TOKEN,
+        LIST_OTHER_CUSTOMER_TOKEN,
       );
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
-        order_id: listOrderIds[1],
+        order_id: listOrderIds[3],
         vendor_orders: [],
       });
     });

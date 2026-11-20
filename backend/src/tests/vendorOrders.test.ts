@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import OrderItem from "../models/OrderItem.js";
 import OrderStatusHistory from "../models/OrderStatusHistory.js";
 import Shipment from "../models/Shipment.js";
+import Order from "../models/Order.js";
 import User from "../models/User.js";
 import Vendor from "../models/Vendor.js";
 import VendorOrder from "../models/VendorOrder.js";
@@ -29,6 +30,7 @@ describe("Vendor Order Routes", () => {
   let statusVendorOrderId: string;
   let noShipmentVendorOrderId: string;
   let foreignVendorOrderId: string;
+  let orderIds: string[] = [];
 
   const getVendorOrders = (query = "", token?: string) =>
     fetch(`${BASE_URL}/vendor-orders${query}`, {
@@ -76,6 +78,19 @@ describe("Vendor Order Routes", () => {
       kyc_status: "verified",
       commission_rate_bps: 0,
     });
+    const orders = await Order.create(
+      Array.from({ length: 4 }, (_, index) => ({
+        user_id: vendorUser.id,
+        address_snapshot: { first_line: `Vendor order fixture ${index}` },
+        subtotal_paise: 1000,
+        discount_paise: 0,
+        shipping_paise: 0,
+        total_paise: 1000,
+        payment_status: "paid",
+        status: "placed",
+      })),
+    );
+    orderIds = orders.map((order) => order.id);
     vendorToken = jwt.sign(
       { id: vendorUser.id, email: vendorUser.email, role: "vendor" },
       JWT_SECRET,
@@ -94,25 +109,25 @@ describe("Vendor Order Routes", () => {
     const [newestOrder, statusOrder, noShipmentOrder, foreignOrder] =
       await VendorOrder.create([
         {
-          order_id: `vendor-orders-newest-${suffix}`,
+          order_id: orderIds[0]!,
           vendor_id: vendor.id,
           status: "placed",
           created_at: new Date("2025-02-02"),
         },
         {
-          order_id: `vendor-orders-status-${suffix}`,
+          order_id: orderIds[1]!,
           vendor_id: vendor.id,
           status: "placed",
           created_at: new Date("2025-02-01"),
         },
         {
-          order_id: `vendor-orders-no-shipment-${suffix}`,
+          order_id: orderIds[2]!,
           vendor_id: vendor.id,
           status: "placed",
           created_at: new Date("2025-01-31"),
         },
         {
-          order_id: `vendor-orders-foreign-${suffix}`,
+          order_id: orderIds[3]!,
           vendor_id: otherVendor.id,
           status: "placed",
         },
@@ -177,6 +192,7 @@ describe("Vendor Order Routes", () => {
     });
     await Vendor.deleteMany({ user_id: { $in: users.map((user) => user.id) } });
     await User.deleteMany({ email: { $in: emails } });
+    await Order.deleteMany({ _id: { $in: orderIds } });
     await mongoose.connection.close();
   });
 
@@ -200,9 +216,9 @@ describe("Vendor Order Routes", () => {
         };
       };
       expect(body.orders.map((order) => order.order_id)).toEqual([
-        `vendor-orders-newest-${suffix}`,
-        `vendor-orders-status-${suffix}`,
-        `vendor-orders-no-shipment-${suffix}`,
+        orderIds[0],
+        orderIds[1],
+        orderIds[2],
       ]);
       expect(body.pagination).toEqual({
         page: 1,
@@ -217,7 +233,7 @@ describe("Vendor Order Routes", () => {
       const page = await getVendorOrders("?page=2&limit=1", vendorToken);
       expect(page.status).toBe(200);
       expect(await page.json()).toMatchObject({
-        orders: [{ order_id: `vendor-orders-status-${suffix}` }],
+        orders: [{ order_id: orderIds[1] }],
         pagination: { page: 2, limit: 1, total: 3, pages: 3 },
       });
 
@@ -265,7 +281,7 @@ describe("Vendor Order Routes", () => {
       };
       expect(body).toMatchObject({
         id: vendorOrderId,
-        order_id: `vendor-orders-newest-${suffix}`,
+        order_id: orderIds[0],
         status: "placed",
         items: [
           {

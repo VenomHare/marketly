@@ -848,6 +848,13 @@ describe("Product Routes", () => {
 
     it("changes status without changing other product fields and rejects missing or archived products", async () => {
       const product = await createOwnedDraftProduct();
+      await ProductImage.create(
+        [0, 1, 2].map((position) => ({
+          product_id: product.id,
+          object_key: `products/${product.id}/status-${position}.png`,
+          position,
+        })),
+      );
       const response = await updateProductStatusRequest(
         product.id,
         { status: "active" },

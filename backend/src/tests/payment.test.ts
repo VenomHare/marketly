@@ -25,6 +25,8 @@ const mocked = vi.hoisted(() => ({
   refundFindById: vi.fn(),
   refundFindOneAndUpdate: vi.fn(),
   refundUpdate: vi.fn(),
+  vendorOrderFind: vi.fn(),
+  vendorSettlementExists: vi.fn(),
   webhookCreate: vi.fn(),
   webhookUpdate: vi.fn(),
   acquireMutex: vi.fn(),
@@ -57,6 +59,8 @@ vi.mock("../models", () => ({
     create: mocked.webhookCreate,
     updateOne: mocked.webhookUpdate,
   },
+  VendorOrder: { find: mocked.vendorOrderFind },
+  VendorSettlement: { exists: mocked.vendorSettlementExists },
 }));
 
 vi.mock("../utils/redisMutex", () => ({
@@ -218,6 +222,13 @@ describe("Razorpay payment and refund security", () => {
       lean: async () => ({ role: "admin", status: "active" }),
     }));
     mocked.acquireMutex.mockResolvedValue(async () => undefined);
+    mocked.vendorOrderFind.mockReturnValue({
+      select() {
+        return this;
+      },
+      lean: async () => [],
+    });
+    mocked.vendorSettlementExists.mockResolvedValue(false);
     const payment = {
       id: PAYMENT_ID,
       _id: new mongoose.Types.ObjectId(PAYMENT_ID),

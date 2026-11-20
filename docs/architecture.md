@@ -103,7 +103,7 @@ Configure the env files before starting the app. Then run `npm run back:dev` in 
 
 ## Data and API documentation
 
-The high-level schema and planned API surface are described in [`SPEC.md`](../SPEC.md). The route reference under [API documentation](api/README.md) describes implemented behavior, including routes that remain placeholders. `features.md` maps user-visible features to their implementation files.
+The high-level schema and planned API surface are described in [`SPEC.md`](../SPEC.md). The route reference under [API documentation](api/README.md) describes implemented behavior, including routes that remain placeholders.
 
 ## Known limitations
 

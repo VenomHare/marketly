@@ -19,7 +19,19 @@ Marketly is a multi-vendor marketplace demo. Customers can browse and search pro
 
 Browse the [screenshots and demo gallery](screenshots/README.md) for customer, vendor, and admin flows.
 
-See [features.md](features.md) for feature-to-code mapping and [SPEC.md](SPEC.md) for the schema and API design notes.
+**Working demo video:** [Marketly demo](https://youtu.be/T1SsObzRO-Q)
+
+## Submission materials
+
+- **Repository and setup:** This repository contains the source code and the local setup instructions below.
+- **Architecture and data/API documentation:** See [architecture and local services](docs/architecture.md), [API reference](docs/api/README.md), [API docs site](docs/), and [project specification](SPEC.md) for the data model and design notes.
+- **Tests and results:** The passing backend suite result is recorded under [Test evidence](#test-evidence). Backend unit/integration and end-to-end test commands are listed under [Useful commands](#useful-commands). No performance or accuracy benchmark is claimed.
+- **Final presentation (10 minutes):** Cover the marketplace problem, architecture and design, key implementation challenges, demonstrated results, known limitations, and next steps. The demo video, project specification, and API documentation can guide the walkthrough.
+- **Individual reflection:** Add each intern's own short reflection to the presentation or submission. State what you learned, which parts you personally owned, and what you would improve next. For this project, useful areas to reflect on include marketplace workflows, payment integration, search, and the difference between planned and implemented infrastructure.
+
+**Development attribution:** Marketly was built with OpenAI Codex using prompts directed by me. I reviewed and verified the implementation and demo flows.
+
+See [SPEC.md](SPEC.md) for the schema and API design notes.
 
 ## Architecture
 
@@ -140,11 +152,21 @@ Demo accounts are documented in [seed/SEED_CREDENTIALS.md](seed/SEED_CREDENTIALS
 | `npm test --prefix backend -- --run` | Run backend unit/integration tests once |
 | `npm run test:e2e --prefix backend` | Run backend end-to-end tests |
 
+## Test evidence
+
+Backend test suite result:
+
+```text
+Test Files  15 passed (15)
+     Tests  299 passed (299)
+  Start at  07:25:08
+  Duration  13.58s
+```
+
 ## Documentation
 
 - [Architecture, services, and environment variables](docs/architecture.md)
 - [API reference and endpoint behavior](docs/api/README.md)
-- [Feature/code map](features.md)
 - [Project specification, data model, and planned work](SPEC.md)
 - [Seed instructions](seed/README.md)
 - [10-minute project video script](project-video-script.md)

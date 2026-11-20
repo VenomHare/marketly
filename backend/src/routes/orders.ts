@@ -659,6 +659,7 @@ ordersRouter.post("/checkout", authenticate, async (req: AuthRequest, res) => {
         session,
         ordered: true,
       });
+      await CartItem.deleteMany({ cart_id: cart.id }).session(session);
       await InventoryMovement.create(
         createdItems.map((item) => ({
           product_id: item.product_id,
@@ -772,7 +773,6 @@ ordersRouter.get("/orders", authenticate, async (req: AuthRequest, res) => {
     const { page, limit } = validation.data;
     const filter = {
       user_id: req.user.id,
-      payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
     };
     const [orders, total] = await Promise.all([
       Order.find(filter)
@@ -885,7 +885,6 @@ ordersRouter.get(
       const order = await Order.findOne({
         _id: orderId,
         user_id: req.user.id,
-        payment_status: { $in: ["paid", "partially_refunded", "refunded"] },
       }).lean();
       if (!order) return res.status(404).json({ message: "Order not found" });
 
